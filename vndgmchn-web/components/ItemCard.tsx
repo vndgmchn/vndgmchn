@@ -38,12 +38,26 @@ export default function ItemCard({ item }: Props) {
           justify-content: center;
           padding: 0.5rem;
           border-bottom: 1px solid #f3f4f6;
+          position: relative;
+          overflow: hidden;
+        }
+        .item-image-blur {
+          position: absolute;
+          top: 0; left: 0; width: 100%; height: 100%;
+          object-fit: cover;
+          filter: blur(20px);
+          opacity: 0.25;
+          transform: scale(1.15);
+          z-index: 0;
+          pointer-events: none;
         }
         .item-image {
           width: 100%;
           height: 100%;
           max-height: 180px;
           object-fit: contain;
+          position: relative;
+          z-index: 10;
         }
         .item-content {
           padding: 0.625rem;
@@ -78,6 +92,15 @@ export default function ItemCard({ item }: Props) {
         }}
       >
         <div className="item-image-wrapper">
+        {item.image_url && (
+          <img 
+            src={item.image_url} 
+            alt="" 
+            className="item-image-blur"
+            loading="lazy"
+            aria-hidden="true"
+          />
+        )}
         {item.image_url ? (
           <img 
             src={item.image_url} 
@@ -86,7 +109,7 @@ export default function ItemCard({ item }: Props) {
             loading="lazy"
           />
         ) : (
-          <span style={{ color: '#d1d5db', fontSize: '14px', fontWeight: 500 }}>No Image</span>
+          <span style={{ color: '#d1d5db', fontSize: '14px', fontWeight: 500, position: 'relative', zIndex: 10 }}>No Image</span>
         )}
       </div>
       <div className="item-content" style={{ padding: 0 }}>
