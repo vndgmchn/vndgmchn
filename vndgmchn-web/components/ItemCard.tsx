@@ -19,17 +19,27 @@ export default function ItemCard({ item }: Props) {
   const setNameDisplay = item.language_code === 'JA' && item.set_name_en ? item.set_name_en : item.set_name;
   
   return (
-    <div style={{ 
-      borderRadius: '12px', 
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-      backgroundColor: '#ffffff',
-      border: '1px solid #e5e7eb',
-      boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
-      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-      cursor: 'pointer'
-    }}>
+    <div 
+      style={{ 
+        borderRadius: '12px', 
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#ffffff',
+        border: '1px solid #e5e7eb',
+        boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        cursor: 'pointer'
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 10px 24px rgba(0,0,0,0.12)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '0 6px 18px rgba(0,0,0,0.08)';
+      }}
+    >
       <div style={{ 
         width: '100%', 
         aspectRatio: '3/4', 
