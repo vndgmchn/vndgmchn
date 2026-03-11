@@ -10,6 +10,10 @@ function getAdjustedMarketPrice(price: number | null | undefined, langCode: stri
   return price;
 }
 
+function formatCurrency(value: number): string {
+  return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 type Props = {
   storefront: StorefrontData;
 };
@@ -30,7 +34,6 @@ export default function StorefrontPage({ storefront }: Props) {
       <style>{`
         .main-container {
           padding: 1rem 0.75rem 2rem;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
           max-width: 1280px;
           margin: 0 auto;
           color: #111827;
@@ -127,16 +130,16 @@ export default function StorefrontPage({ storefront }: Props) {
             <p style={{ margin: '0 0 0.125rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Total Listing Value
             </p>
-            <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
-              ${totalListingValue.toFixed(2)}
+            <p style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
+              ${formatCurrency(totalListingValue)}
             </p>
           </div>
           <div>
             <p style={{ margin: '0 0 0.125rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Total Market Value
             </p>
-            <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
-              ${totalMarketValue.toFixed(2)}
+            <p style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
+              ${formatCurrency(totalMarketValue)}
             </p>
           </div>
         </div>
