@@ -28,6 +28,41 @@ export default function ItemCard({ item }: Props) {
           transform: translateY(-2px) !important;
           box-shadow: 0 10px 24px rgba(0,0,0,0.12) !important;
         }
+
+        .item-image-wrapper {
+          width: 100%;
+          aspect-ratio: 3/4;
+          background-color: #f9fafb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.5rem;
+          border-bottom: 1px solid #f3f4f6;
+        }
+        .item-image {
+          width: 100%;
+          height: 100%;
+          max-height: 180px;
+          object-fit: contain;
+        }
+        .item-content {
+          padding: 0.625rem;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+        }
+        
+        @media (min-width: 640px) {
+          .item-image-wrapper {
+            padding: 0.75rem;
+          }
+          .item-image {
+            max-height: 260px;
+          }
+          .item-content {
+            padding: 0.875rem;
+          }
+        }
       `}</style>
       <div 
         className="storefront-item-card"
@@ -42,32 +77,19 @@ export default function ItemCard({ item }: Props) {
           cursor: 'pointer'
         }}
       >
-        <div style={{ 
-        width: '100%', 
-        aspectRatio: '3/4', 
-        backgroundColor: '#f9fafb',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '0.75rem',
-        borderBottom: '1px solid #f3f4f6'
-      }}>
+        <div className="item-image-wrapper">
         {item.image_url ? (
           <img 
             src={item.image_url} 
             alt={item.title} 
-            style={{
-              width: '100%',
-              height: '260px',
-              objectFit: 'contain'
-            }}
+            className="item-image"
             loading="lazy"
           />
         ) : (
           <span style={{ color: '#d1d5db', fontSize: '14px', fontWeight: 500 }}>No Image</span>
         )}
       </div>
-      <div style={{ padding: '0.875rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div className="item-content">
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
           <h3 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 600, color: '#111827', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
             {item.title}
