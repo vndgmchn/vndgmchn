@@ -22,6 +22,14 @@ export type StorefrontRow = {
     set_printed_total: number | null;
     market_price: number | null;
     last_updated: string | null;
+    condition: string | null;
+    is_graded: boolean | null;
+    grading_company: string | null;
+    grade: number | null;
+    kind: string | null;
+    language_code: string | null;
+    rarity: string | null;
+    set_name_en: string | null;
 };
 
 /** A single FOR_SALE inventory item on the storefront. */
@@ -38,6 +46,14 @@ export type StorefrontItem = {
     set_printed_total: number | null;
     market_price: number | null;
     last_updated: string | null;
+    condition: string | null;
+    is_graded: boolean | null;
+    grading_company: string | null;
+    grade: number | null;
+    kind: string | null;
+    language_code: string | null;
+    rarity: string | null;
+    set_name_en: string | null;
 };
 
 /** Normalized storefront page data: owner identity + FOR_SALE items. */
@@ -81,6 +97,14 @@ function normalizeRows(rows: StorefrontRow[]): StorefrontData | null {
             set_printed_total: row.set_printed_total,
             market_price: row.market_price,
             last_updated: row.last_updated,
+            condition: row.condition,
+            is_graded: row.is_graded,
+            grading_company: row.grading_company,
+            grade: row.grade,
+            kind: row.kind,
+            language_code: row.language_code,
+            rarity: row.rarity,
+            set_name_en: row.set_name_en,
         }));
 
     const result: StorefrontData = {
