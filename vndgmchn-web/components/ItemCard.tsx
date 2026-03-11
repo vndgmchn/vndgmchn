@@ -78,7 +78,7 @@ export default function ItemCard({ item }: Props) {
             </div>
           )}
         </div>
-        {(setNameDisplay || item.collector_number) && (
+        {(setNameDisplay || item.collector_number || item.rarity) && (
           <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {setNameDisplay}{setNumberDisplay}{rarityDisplay}
           </p>

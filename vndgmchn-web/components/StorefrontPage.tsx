@@ -8,16 +8,17 @@ type Props = {
 
 export default function StorefrontPage({ storefront }: Props) {
   return (
-    <main
-      style={{
-        padding: '1.5rem 1rem 3rem',
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        maxWidth: '1280px',
-        margin: '0 auto',
-        color: '#111827',
-      }}
-    >
+    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+      <main
+        style={{
+          padding: '2rem 1.25rem 4rem',
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          maxWidth: '1280px',
+          margin: '0 auto',
+          color: '#111827',
+        }}
+      >
       <style>{`
         .storefront-grid {
           display: grid;
@@ -54,23 +55,24 @@ export default function StorefrontPage({ storefront }: Props) {
 
       <section
         style={{
-          marginBottom: '1.25rem',
-          paddingBottom: '0.875rem',
+          marginBottom: '1.5rem',
+          paddingBottom: '1rem',
           borderBottom: '1px solid #e5e7eb',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-end',
-          gap: '0.75rem',
+          gap: '1rem',
           flexWrap: 'wrap',
         }}
       >
         <div>
           <h2
             style={{
-              margin: '0 0 0.2rem',
-              fontSize: '1.125rem',
-              fontWeight: 700,
-              letterSpacing: '-0.03em',
+              margin: '0 0 0.25rem',
+              fontSize: '1.25rem',
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+              color: '#111827',
             }}
           >
             Inventory
@@ -78,8 +80,9 @@ export default function StorefrontPage({ storefront }: Props) {
           <p
             style={{
               margin: 0,
-              color: '#6b7280',
-              fontSize: '0.875rem',
+              color: '#4b5563',
+              fontSize: '0.9375rem',
+              fontWeight: 500,
             }}
           >
             Public storefront listings
@@ -103,5 +106,6 @@ export default function StorefrontPage({ storefront }: Props) {
         ))}
       </div>
     </main>
+    </div>
   );
 }
