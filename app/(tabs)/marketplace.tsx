@@ -3,8 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { normalizeHandle } from '@/lib/utils';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useCallback, useState, useMemo } from 'react';
+import { ActivityIndicator, FlatList, Image, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Share } from 'react-native';
 
 // Map common Japanese rarities to standard English abbreviations or names
 const JA_RARITY_MAP: Record<string, string> = {
@@ -50,6 +50,12 @@ export default function MarketplaceScreen() {
     const [error, setError] = useState<string | null>(null);
     const [storefrontRows, setStorefrontRows] = useState<any[] | null>(null);
     const [numColumns, setNumColumns] = useState<number>(2);
+
+    // Filter & Sort State
+    const [storefrontSearchQuery, setStorefrontSearchQuery] = useState('');
+    const [filterType, setFilterType] = useState<'All' | 'Cards' | 'Sealed'>('All');
+    const [filterLang, setFilterLang] = useState<'All' | 'English' | 'Japanese'>('All');
+    const [sortBy, setSortBy] = useState<'Recent' | 'Price high-low' | 'Price low-high' | 'Name A-Z'>('Recent');
 
     // Modal State
     const [selectedItem, setSelectedItem] = useState<any | null>(null);
@@ -226,7 +232,51 @@ export default function MarketplaceScreen() {
 
     // Computations
     const totalListValue = validItems.reduce((acc, current) => acc + ((parseFloat(current.listing_price) || 0) * (current.quantity || 1)), 0);
-    const totalMarketValue = validItems.reduce((acc, current) => acc + ((parseFloat(current.market_price) || 0) * (current.quantity || 1)), 0);
+    const totalMarketValue = validItems.reduce((acc, current) => {
+        const rawMarketPrice = typeof current.market_price === 'number' ? current.market_price : parseFloat(current.market_price);
+        return acc + ((adjustMarketPrice(rawMarketPrice, current.language_code) || 0) * (current.quantity || 1));
+    }, 0);
+
+    const displayItems = useMemo(() => {
+        let items = [...validItems];
+
+        if (storefrontSearchQuery.trim()) {
+            const query = storefrontSearchQuery.toLowerCase();
+            items = items.filter(item => {
+                const titleMatch = (item.title || '').toLowerCase().includes(query);
+                const setNameMatch = (item.set_name || '').toLowerCase().includes(query);
+                const setNameEnMatch = (item.set_name_en || '').toLowerCase().includes(query);
+                return titleMatch || setNameMatch || setNameEnMatch;
+            });
+        }
+
+        if (filterType === 'Cards') {
+            items = items.filter(item => item.kind !== 'SEALED');
+        } else if (filterType === 'Sealed') {
+            items = items.filter(item => item.kind === 'SEALED');
+        }
+
+        if (filterLang === 'English') {
+            items = items.filter(item => item.language_code === 'EN' || !item.language_code);
+        } else if (filterLang === 'Japanese') {
+            items = items.filter(item => item.language_code === 'JA');
+        }
+
+        items.sort((a, b) => {
+            if (sortBy === 'Price high-low') {
+                return (parseFloat(b.listing_price) || 0) - (parseFloat(a.listing_price) || 0);
+            }
+            if (sortBy === 'Price low-high') {
+                return (parseFloat(a.listing_price) || 0) - (parseFloat(b.listing_price) || 0);
+            }
+            if (sortBy === 'Name A-Z') {
+                return (a.title || '').localeCompare(b.title || '');
+            }
+            return 0; // Recent
+        });
+        
+        return items;
+    }, [validItems, storefrontSearchQuery, filterType, filterLang, sortBy]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -270,7 +320,7 @@ export default function MarketplaceScreen() {
                 <View style={styles.resultSection}>
                     <FlatList
                         key={`grid-${numColumns}`}
-                        data={validItems}
+                        data={displayItems}
                         keyExtractor={(item, index) => item.item_id || index.toString()}
                         renderItem={renderItem}
                         numColumns={numColumns}
@@ -284,46 +334,55 @@ export default function MarketplaceScreen() {
                             <View style={styles.listHeaderBlock}>
                                 {/* Storefront Header */}
                                 <View style={styles.profileHeader}>
-                                    <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
-                                        <Text style={styles.avatarText}>
-                                            {profile.display_name ? profile.display_name.charAt(0).toUpperCase() : profile.handle.charAt(0).toUpperCase()}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.profileInfo}>
-                                        <Text style={[styles.displayName, { color: theme.text }]}>
-                                            {profile.display_name || `@${profile.handle}`}
-                                        </Text>
-                                        <Text style={[styles.handleDesc, { color: theme.mutedText }]}>
-                                            @{profile.handle}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                {profile.bio && (
-                                    <View style={styles.bioContainer}>
-                                        <Text style={[styles.bio, { color: theme.text }]}>{profile.bio}</Text>
-                                    </View>
-                                )}
-
-                                {/* Badges */}
-                                <View style={styles.badgeRow}>
-                                    <View style={[styles.badge, { backgroundColor: theme.secondary + '20' }]}>
-                                        <Text style={[styles.badgeText, { color: theme.secondary }]}>Public Storefront</Text>
-                                    </View>
-                                    <View style={[styles.badge, { backgroundColor: theme.border }]}>
-                                        <Text style={[styles.badgeText, { color: theme.text }]}>{validItems.length} For Sale</Text>
+                                    <View style={styles.profileRow}>
+                                        <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
+                                            <Text style={styles.avatarText}>
+                                                {profile.display_name ? profile.display_name.charAt(0).toUpperCase() : profile.handle.charAt(0).toUpperCase()}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.profileInfo}>
+                                            <Text style={[styles.displayName, { color: theme.text }]}>
+                                                {profile.display_name || `@${profile.handle}`}
+                                            </Text>
+                                            <Text style={[styles.handleDesc, { color: theme.mutedText }]}>
+                                                @{profile.handle}
+                                            </Text>
+                                            {profile.bio && (
+                                                <Text style={[styles.bio, { color: theme.text, marginTop: 4 }]} numberOfLines={3}>
+                                                    {profile.bio}
+                                                </Text>
+                                            )}
+                                        </View>
+                                        <View style={styles.profileActions}>
+                                            <TouchableOpacity 
+                                                style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                                                onPress={() => {
+                                                    Share.share({
+                                                        message: `Check out ${profile.display_name || profile.handle}'s storefront: https://vndgmchn.com/${profile.handle}`,
+                                                        url: `https://vndgmchn.com/${profile.handle}`
+                                                    });
+                                                }}
+                                            >
+                                                <Ionicons name="share-outline" size={20} color={theme.text} />
+                                            </TouchableOpacity>
+                                        </View>
                                     </View>
                                 </View>
 
                                 {/* Aggregates */}
                                 <View style={[styles.statsRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                    <View style={styles.statColumn}>
-                                        <Text style={[styles.statLabel, { color: theme.mutedText }]}>Total Listing Value</Text>
+                                    <View style={[styles.statColumn, { flex: 0.8 }]}>
+                                        <Text style={[styles.statLabel, { color: theme.mutedText }]}>Items</Text>
+                                        <Text style={[styles.statValue, { color: theme.text, fontSize: 14 }]}>{validItems.length}</Text>
+                                    </View>
+                                    <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+                                    <View style={[styles.statColumn, { flex: 1.2 }]}>
+                                        <Text style={[styles.statLabel, { color: theme.mutedText }]}>List Value</Text>
                                         <Text style={[styles.statValue, { color: theme.text }]}>{formatCurrency(totalListValue)}</Text>
                                     </View>
                                     <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-                                    <View style={styles.statColumn}>
-                                        <Text style={[styles.statLabel, { color: theme.mutedText }]}>Total Market Value</Text>
+                                    <View style={[styles.statColumn, { flex: 1.2 }]}>
+                                        <Text style={[styles.statLabel, { color: theme.mutedText }]}>Market Value</Text>
                                         <Text style={[styles.statValue, { color: theme.text }]}>
                                             {totalMarketValue > 0 ? formatCurrency(totalMarketValue) : '--'}
                                         </Text>
@@ -346,6 +405,57 @@ export default function MarketplaceScreen() {
                                         <Ionicons name="apps-outline" size={20} color={numColumns === 3 ? theme.secondary : theme.mutedText} />
                                         <Text style={[styles.toggleText, { color: numColumns === 3 ? theme.secondary : theme.mutedText }]}>Binder</Text>
                                     </TouchableOpacity>
+                                </View>
+
+                                {/* Filters & Sort */}
+                                <View style={styles.filterSection}>
+                                    <TextInput
+                                        style={[styles.smallInput, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }]}
+                                        value={storefrontSearchQuery}
+                                        onChangeText={setStorefrontSearchQuery}
+                                        placeholder="Search title or set..."
+                                        placeholderTextColor={theme.mutedText}
+                                        autoCapitalize="none"
+                                        returnKeyType="done"
+                                    />
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterScrollContent}>
+                                        {/* Type Filter */}
+                                        {(['All', 'Cards', 'Sealed'] as const).map(type => (
+                                            <TouchableOpacity
+                                                key={type}
+                                                style={[styles.filterChip, { borderColor: theme.border }, filterType === type && { backgroundColor: theme.primary, borderColor: theme.primary }]}
+                                                onPress={() => setFilterType(type)}
+                                            >
+                                                <Text style={[styles.filterChipText, { color: theme.text }, filterType === type && { color: '#fff' }]}>{type}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                        
+                                        <View style={[styles.filterSeparator, { backgroundColor: theme.border }]} />
+                                        
+                                        {/* Language Filter */}
+                                        {(['All', 'English', 'Japanese'] as const).map(lang => (
+                                            <TouchableOpacity
+                                                key={lang}
+                                                style={[styles.filterChip, { borderColor: theme.border }, filterLang === lang && { backgroundColor: theme.primary, borderColor: theme.primary }]}
+                                                onPress={() => setFilterLang(lang)}
+                                            >
+                                                <Text style={[styles.filterChipText, { color: theme.text }, filterLang === lang && { color: '#fff' }]}>{lang === 'All' ? 'All Langs' : lang === 'English' ? 'EN' : 'JP'}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                        
+                                        <View style={[styles.filterSeparator, { backgroundColor: theme.border }]} />
+                                        
+                                        {/* Sort */}
+                                        {(['Recent', 'Price high-low', 'Price low-high', 'Name A-Z'] as const).map(sort => (
+                                            <TouchableOpacity
+                                                key={sort}
+                                                style={[styles.filterChip, { borderColor: theme.border }, sortBy === sort && { backgroundColor: theme.secondary, borderColor: theme.secondary }]}
+                                                onPress={() => setSortBy(sort)}
+                                            >
+                                                <Text style={[styles.filterChipText, { color: theme.text }, sortBy === sort && { color: '#fff' }]}>{sort === 'Recent' ? 'Recent' : sort === 'Price high-low' ? '$$ - $' : sort === 'Price low-high' ? '$ - $$' : 'A-Z'}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
                                 </View>
 
                                 <View style={[styles.divider, { backgroundColor: theme.border, marginTop: 10 }]} />
@@ -427,15 +537,13 @@ export default function MarketplaceScreen() {
                                             <Text style={{ fontSize: 10, color: theme.text, fontWeight: 'bold' }}>{selectedItem.condition}</Text>
                                         </View>
                                     ) : null}
+                                    <Text style={[styles.modalMeta, { color: theme.mutedText, marginTop: 0 }]}>Qty: {selectedItem.quantity}</Text>
                                 </View>
 
                                 <View style={styles.modalPriceRow}>
                                     <Text style={[styles.modalPrice, { color: theme.success }]}>
                                         {formatCurrency(selectedItem.listing_price || 0)}
                                     </Text>
-                                    <View style={[styles.modalBadge, { backgroundColor: theme.border }]}>
-                                        <Text style={[styles.modalBadgeText, { color: theme.text }]}>Qty: {selectedItem.quantity}</Text>
-                                    </View>
                                 </View>
 
                                 {selectedItem.last_updated && typeof selectedItem.market_price === 'number' ? (
@@ -514,10 +622,12 @@ const styles = StyleSheet.create({
         paddingTop: 10,
     },
     profileHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
         paddingHorizontal: 20,
-        paddingBottom: 10,
+        paddingBottom: 20,
+    },
+    profileRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
     },
     avatarPlaceholder: {
         width: 60,
@@ -535,6 +645,7 @@ const styles = StyleSheet.create({
     profileInfo: {
         flex: 1,
         justifyContent: 'center',
+        paddingRight: 12,
     },
     displayName: {
         fontSize: 20,
@@ -544,29 +655,21 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginTop: 2,
     },
-    bioContainer: {
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-    },
     bio: {
         fontSize: 14,
         lineHeight: 20,
     },
-    badgeRow: {
+    profileActions: {
         flexDirection: 'row',
-        paddingHorizontal: 20,
-        marginBottom: 20,
-        flexWrap: 'wrap',
-        gap: 8,
+        alignItems: 'center',
     },
-    badge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-    },
-    badgeText: {
-        fontSize: 12,
-        fontWeight: '600',
+    iconButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
     },
     toggleRow: {
         flexDirection: 'row',
@@ -677,6 +780,41 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '500',
     },
+    filterSection: {
+        paddingHorizontal: 20,
+        marginBottom: 10,
+        marginTop: 6,
+    },
+    smallInput: {
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 10,
+        fontSize: 14,
+        marginBottom: 10,
+    },
+    filterScroll: {
+        flexDirection: 'row',
+    },
+    filterScrollContent: {
+        alignItems: 'center',
+        paddingBottom: 4,
+    },
+    filterChip: {
+        borderWidth: 1,
+        borderRadius: 16,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        marginRight: 8,
+    },
+    filterChipText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    filterSeparator: {
+        width: 1,
+        height: 20,
+        marginRight: 8,
+    },
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -722,15 +860,6 @@ const styles = StyleSheet.create({
     modalPrice: {
         fontSize: 32,
         fontWeight: '900',
-    },
-    modalBadge: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-    },
-    modalBadgeText: {
-        fontSize: 16,
-        fontWeight: 'bold',
     },
     modalMeta: {
         fontSize: 16,
