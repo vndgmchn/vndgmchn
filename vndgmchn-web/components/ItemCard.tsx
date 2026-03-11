@@ -20,76 +20,90 @@ export default function ItemCard({ item }: Props) {
   
   return (
     <div style={{ 
-      border: '1px solid #eaeaea', 
-      borderRadius: '8px', 
+      borderRadius: '12px', 
       overflow: 'hidden',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      backgroundColor: '#ffffff',
+      border: '1px solid #e5e7eb',
+      boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
+      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      cursor: 'pointer'
     }}>
       <div style={{ 
         width: '100%', 
         aspectRatio: '3/4', 
-        backgroundColor: '#fafafa',
+        backgroundColor: '#f9fafb',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1rem'
+        padding: '0.75rem',
+        borderBottom: '1px solid #f3f4f6'
       }}>
         {item.image_url ? (
           <img 
             src={item.image_url} 
             alt={item.title} 
-            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+            style={{
+              width: '100%',
+              height: '260px',
+              objectFit: 'contain'
+            }}
             loading="lazy"
           />
         ) : (
-          <span style={{ color: '#ccc' }}>No Image</span>
+          <span style={{ color: '#d1d5db', fontSize: '14px', fontWeight: 500 }}>No Image</span>
         )}
       </div>
-      <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.25rem' }}>
-          <h3 style={{ margin: 0, fontSize: '14px', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1 }}>
+      <div style={{ padding: '0.875rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+          <h3 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 600, color: '#111827', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
             {item.title}
           </h3>
           {item.language_code === 'JA' && (
-            <div style={{ backgroundColor: '#eaeaea', padding: '1px 4px', borderRadius: '4px', marginLeft: '6px' }}>
-              <span style={{ fontSize: '9px', color: '#333', fontWeight: 'bold' }}>JP</span>
+            <div style={{ backgroundColor: '#f3f4f6', border: '1px solid #e5e7eb', padding: '1px 4px', borderRadius: '4px', marginLeft: '6px', flexShrink: 0 }}>
+              <span style={{ fontSize: '10px', color: '#4b5563', fontWeight: '700' }}>JP</span>
             </div>
           )}
         </div>
         {(setNameDisplay || item.collector_number) && (
-          <p style={{ margin: '0 0 0.5rem', fontSize: '12px', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {setNameDisplay}{setNumberDisplay}{rarityDisplay}
           </p>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', marginBottom: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', marginBottom: 'auto', gap: '4px' }}>
             {item.kind === 'SEALED' ? (
-                <div style={{ backgroundColor: '#10b981', padding: '1px 4px', borderRadius: '4px', marginRight: '6px', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '9px', color: '#fff', fontWeight: 'bold' }}>SEALED</span>
+                <div style={{ backgroundColor: '#10b981', padding: '2px 6px', borderRadius: '4px' }}>
+                    <span style={{ fontSize: '10px', color: '#fff', fontWeight: '700', letterSpacing: '0.5px' }}>SEALED</span>
                 </div>
             ) : item.is_graded && item.grading_company && item.grade != null ? (
-                <div style={{ backgroundColor: '#eaeaea', padding: '1px 4px', borderRadius: '4px', marginRight: '6px', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '9px', color: '#333', fontWeight: 'bold' }}>{item.grading_company} {item.grade}</span>
+                <div style={{ backgroundColor: '#f3f4f6', border: '1px solid #e5e7eb', padding: '2px 6px', borderRadius: '4px' }}>
+                    <span style={{ fontSize: '10px', color: '#374151', fontWeight: '600' }}>{item.grading_company} {item.grade}</span>
                 </div>
             ) : item.condition ? (
-                <div style={{ backgroundColor: '#eaeaea', padding: '1px 4px', borderRadius: '4px', marginRight: '6px', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '9px', color: '#333', fontWeight: 'bold' }}>{item.condition}</span>
+                <div style={{ backgroundColor: '#f3f4f6', border: '1px solid #e5e7eb', padding: '2px 6px', borderRadius: '4px' }}>
+                    <span style={{ fontSize: '10px', color: '#374151', fontWeight: '600' }}>{item.condition}</span>
                 </div>
             ) : null}
+            <div style={{ backgroundColor: '#f3f4f6', border: '1px solid transparent', padding: '2px 6px', borderRadius: '4px' }}>
+                <span style={{ fontSize: '10px', color: '#6b7280', fontWeight: '600' }}>x{item.quantity}</span>
+            </div>
         </div>
         
-        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: '8px' }}>
+        <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
-            <span style={{ fontSize: '10px', color: '#999', display: 'block', marginBottom: '2px' }}>QTY</span>
-            <span style={{ fontSize: '12px', color: '#333' }}>{item.quantity}</span>
+            {item.market_price != null ? (
+              <>
+                <span style={{ fontSize: '9px', color: '#9ca3af', display: 'block', marginBottom: '1px', fontWeight: 600 }}>MKT</span>
+                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>${item.market_price.toFixed(2)}</span>
+              </>
+            ) : (
+                <span style={{ fontSize: '12px', color: '#9ca3af', display: 'block' }}>—</span>
+            )}
           </div>
           <div style={{ textAlign: 'right' }}>
-            {item.market_price != null && (
-              <span style={{ fontSize: '11px', color: '#999', marginRight: '8px' }}>
-                MKT ${item.market_price.toFixed(2)}
-              </span>
-            )}
-            <strong style={{ fontSize: '16px', color: '#0070f3' }}>
+            <span style={{ fontSize: '9px', color: '#9ca3af', display: 'block', marginBottom: '1px', fontWeight: 600 }}>BUY</span>
+            <strong style={{ fontSize: '16px', color: '#2563eb', fontWeight: 800, letterSpacing: '-0.5px' }}>
               ${item.listing_price.toFixed(2)}
             </strong>
           </div>
