@@ -11,12 +11,48 @@ function padIfNumeric(val: string | number | null | undefined): string {
     return /^\d+$/.test(s) ? s.padStart(3, '0') : s;
 }
 
+const JA_RARITY_MAP: Record<string, string> = {
+  'コモン': 'Common',
+  'アンコモン': 'Uncommon',
+  'レア': 'Rare',
+  'スーパーレア': 'Super Rare',
+  'シークレット': 'Secret',
+  'シークレットレア': 'Secret Rare',
+  'パラレル': 'Parallel',
+  'プロモ': 'Promo',
+  'リーダー': 'Leader',
+  'スペシャルカード': 'Special Card',
+  'トリプルレア': 'Triple Rare',
+  'ダブルレア': 'Double Rare',
+  'ウルトラレア': 'Ultra Rare',
+  'スペシャルアートレア': 'Special Art Rare',
+  'シークレットスーパーレア': 'Secret Super Rare',
+};
+
+// Fallback heuristic: If it is Japanese and the market price is suspiciously large (e.g. >= 1000), 
+// it is likely cached in raw JPY. Convert it.
+const JPY_TO_USD = Number(process.env.NEXT_PUBLIC_JPY_TO_USD_RATE || process.env.EXPO_PUBLIC_JPY_TO_USD_RATE || 0.00637);
+
+function adjustMarketPrice(price: number | null | undefined, langCode: string | null | undefined): number | null {
+  if (typeof price !== 'number' || price === null) return null;
+  if (langCode === 'JA' && price >= 1000) {
+     return price * JPY_TO_USD;
+  }
+  return price;
+}
+
+function translateRarity(rarity: string | null | undefined): string {
+  if (!rarity) return '';
+  return JA_RARITY_MAP[rarity] || rarity;
+}
+
 export default function ItemCard({ item }: Props) {
   const printedTotal = item.set_printed_total ?? item.set_total;
   const denominator = printedTotal != null ? `/${padIfNumeric(printedTotal)}` : '';
   const setNumberDisplay = item.collector_number ? `${padIfNumeric(item.collector_number)}${denominator}` : '';
-  const rarityDisplay = item.rarity ? `${item.rarity}` : '';
+  const rarityDisplay = item.rarity ? translateRarity(item.rarity) : '';
   const setNameDisplay = item.language_code === 'JA' && item.set_name_en ? item.set_name_en : item.set_name;
+  const adjustedMarketPrice = adjustMarketPrice(item.market_price, item.language_code);
   
   return (
     <>
@@ -159,10 +195,10 @@ export default function ItemCard({ item }: Props) {
           marginTop: 'auto'
         }}>
           <div>
-            {item.market_price != null ? (
+            {adjustedMarketPrice != null ? (
               <>
                 <span style={{ fontSize: '9px', color: '#9ca3af', display: 'block', marginBottom: '1px', fontWeight: 600 }}>MKT</span>
-                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 600 }}>${item.market_price.toFixed(2)}</span>
+                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 600 }}>${adjustedMarketPrice.toFixed(2)}</span>
               </>
             ) : (
                 <span style={{ fontSize: '12px', color: '#9ca3af', display: 'block' }}>—</span>

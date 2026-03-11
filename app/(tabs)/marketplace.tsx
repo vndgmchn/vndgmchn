@@ -6,6 +6,42 @@ import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+// Map common Japanese rarities to standard English abbreviations or names
+const JA_RARITY_MAP: Record<string, string> = {
+    'コモン': 'Common',
+    'アンコモン': 'Uncommon',
+    'レア': 'Rare',
+    'スーパーレア': 'Super Rare',
+    'シークレット': 'Secret',
+    'シークレットレア': 'Secret Rare',
+    'パラレル': 'Parallel',
+    'プロモ': 'Promo',
+    'リーダー': 'Leader',
+    'スペシャルカード': 'Special Card',
+    'トリプルレア': 'Triple Rare',
+    'ダブルレア': 'Double Rare',
+    'ウルトラレア': 'Ultra Rare',
+    'スペシャルアートレア': 'Special Art Rare',
+    'シークレットスーパーレア': 'Secret Super Rare',
+};
+
+// Fallback heuristic: If it is Japanese and the market price is suspiciously large (e.g. >= 1000), 
+// it is likely cached in raw JPY. Convert it.
+const JPY_TO_USD = Number(process.env.EXPO_PUBLIC_JPY_TO_USD_RATE || process.env.NEXT_PUBLIC_JPY_TO_USD_RATE || 0.00637);
+
+function adjustMarketPrice(price: number | null | undefined, langCode: string | null | undefined): number | null {
+    if (typeof price !== 'number' || price === null) return null;
+    if (langCode === 'JA' && price >= 1000) {
+       return price * JPY_TO_USD;
+    }
+    return price;
+}
+
+function translateRarity(rarity: string | null | undefined): string {
+    if (!rarity) return '';
+    return JA_RARITY_MAP[rarity] || rarity;
+}
+
 export default function MarketplaceScreen() {
     const theme = useThemeColors();
     const [searchHandle, setSearchHandle] = useState('');
@@ -135,7 +171,7 @@ export default function MarketplaceScreen() {
                             <Text style={[styles.itemMeta, { color: theme.mutedText, fontSize: numColumns === 3 ? 9 : 10, marginTop: 0, marginBottom: 6 }]} numberOfLines={1}>
                                 {[
                                     item.collector_number ? `${padIfNumeric(item.collector_number)}${(item.set_printed_total ?? item.set_total) != null ? `/${padIfNumeric(item.set_printed_total ?? item.set_total)}` : ''}` : '',
-                                    item.rarity
+                                    translateRarity(item.rarity)
                                 ].filter(Boolean).join(' • ')}
                             </Text>
                         )}
@@ -162,7 +198,7 @@ export default function MarketplaceScreen() {
                             {item.last_updated && typeof item.market_price === 'number' ? (
                                 <>
                                     <Text style={[styles.itemMarketPrice, { color: theme.mutedText, fontSize: numColumns === 3 ? 9 : 10 }]}>
-                                        Mkt: {formatCurrency(item.market_price)}
+                                        Mkt: {formatCurrency(adjustMarketPrice(item.market_price, item.language_code) || 0)}
                                     </Text>
                                     <Text style={[styles.itemMarketPrice, { color: theme.mutedText, fontSize: numColumns === 3 ? 8 : 9 }]}>
                                         As of: {formatDate(item.last_updated)}
@@ -372,7 +408,7 @@ export default function MarketplaceScreen() {
                                     <Text style={[styles.modalMeta, { color: theme.mutedText, marginTop: 0, marginBottom: 12 }]}>
                                         {[
                                             selectedItem.collector_number ? `${padIfNumeric(selectedItem.collector_number)}${(selectedItem.set_printed_total ?? selectedItem.set_total) != null ? `/${padIfNumeric(selectedItem.set_printed_total ?? selectedItem.set_total)}` : ''}` : '',
-                                            selectedItem.rarity
+                                            translateRarity(selectedItem.rarity)
                                         ].filter(Boolean).join(' • ')}
                                     </Text>
                                 )}
@@ -404,7 +440,7 @@ export default function MarketplaceScreen() {
 
                                 {selectedItem.last_updated && typeof selectedItem.market_price === 'number' ? (
                                     <Text style={[styles.modalMeta, { color: theme.mutedText }]}>
-                                        Current Scrydex Market: {formatCurrency(selectedItem.market_price)}
+                                        Current Scrydex Market: {formatCurrency(adjustMarketPrice(selectedItem.market_price, selectedItem.language_code) || 0)}
                                         {'\n'}As of: {formatDate(selectedItem.last_updated)}
                                     </Text>
                                 ) : (
