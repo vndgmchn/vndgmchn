@@ -38,6 +38,7 @@ export default function StorefrontHeader({ displayName, handle, bio }: Props) {
         flex-direction: row;
         align-items: flex-start;
         gap: 1rem;
+        position: relative;
       }
       .storefront-avatar {
         width: 76px;
@@ -65,12 +66,24 @@ export default function StorefrontHeader({ displayName, handle, bio }: Props) {
       }
       .storefront-bio {
         font-size: 0.875rem;
-        margin: 0 0 0.75rem;
+        margin: 0;
       }
       .storefront-share-btn {
-        align-self: flex-start;
-        padding: 0.375rem 0.875rem;
-        font-size: 0.8125rem;
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: none;
+        border: none;
+        padding: 0.375rem;
+        cursor: pointer;
+        color: #9ca3af;
+        transition: color 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .storefront-share-btn:hover {
+        color: #4b5563;
       }
 
       @media (min-width: 640px) {
@@ -93,11 +106,12 @@ export default function StorefrontHeader({ displayName, handle, bio }: Props) {
         }
         .storefront-bio {
           font-size: 0.9375rem;
-          margin: 0 0 1rem;
+          margin: 0;
         }
         .storefront-share-btn {
-          padding: 0.5rem 1rem;
-          font-size: 0.875rem;
+          top: 1.25rem;
+          right: 1.25rem;
+          padding: 0.5rem;
         }
       }
     `}</style>
@@ -137,27 +151,27 @@ export default function StorefrontHeader({ displayName, handle, bio }: Props) {
             {bio}
           </p>
         )}
-
-        <button 
-          onClick={handleShare}
-          className="storefront-share-btn"
-          style={{
-            backgroundColor: copied ? '#10b981' : '#f3f4f6',
-            color: copied ? '#ffffff' : '#374151',
-            border: copied ? '1px solid #10b981' : '1px solid #e5e7eb',
-            borderRadius: '6px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minWidth: '70px'
-          }}
-        >
-          {copied ? 'Copied' : 'Share'}
-        </button>
       </div>
+
+      <button 
+        onClick={handleShare}
+        className="storefront-share-btn"
+        title="Share Storefront"
+      >
+        {copied ? (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+        )}
+      </button>
     </div>
     </>
   );

@@ -149,7 +149,7 @@ export default function ItemCard({ item }: Props) {
         )}
       </div>
       <div className="item-content" style={{ padding: 0 }}>
-        <div style={{ padding: '0.625rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '0.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
             <h3 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 600, color: '#111827', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               {item.title}{item.language_code === 'JA' ? ' (JP)' : ''}
@@ -191,7 +191,7 @@ export default function ItemCard({ item }: Props) {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'flex-end',
-          padding: '0.75rem',
+          padding: '0.625rem 0.5rem',
           marginTop: 'auto'
         }}>
           <div>

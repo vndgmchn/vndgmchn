@@ -2,11 +2,28 @@ import { StorefrontData } from '@/lib/storefront';
 import ItemCard from './ItemCard';
 import StorefrontHeader from './StorefrontHeader';
 
+// Helper for safely converting raw JPY cache values to USD for the summary
+const JPY_TO_USD = Number(process.env.NEXT_PUBLIC_JPY_TO_USD_RATE || process.env.EXPO_PUBLIC_JPY_TO_USD_RATE || 0.00637);
+function getAdjustedMarketPrice(price: number | null | undefined, langCode: string | null | undefined): number {
+  if (typeof price !== 'number' || price === null) return 0;
+  if (langCode === 'JA' && price >= 1000) return price * JPY_TO_USD;
+  return price;
+}
+
 type Props = {
   storefront: StorefrontData;
 };
 
 export default function StorefrontPage({ storefront }: Props) {
+  let totalListingValue = 0;
+  let totalMarketValue = 0;
+  
+  storefront.items.forEach(item => {
+    const qty = item.quantity || 1;
+    totalListingValue += (item.listing_price || 0) * qty;
+    totalMarketValue += getAdjustedMarketPrice(item.market_price, item.language_code) * qty;
+  });
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
       <main className="main-container">
@@ -100,33 +117,28 @@ export default function StorefrontPage({ storefront }: Props) {
           borderBottom: '1px solid #e5e7eb',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'flex-end',
+          alignItems: 'center',
           gap: '1rem',
           flexWrap: 'wrap',
         }}
       >
-        <div>
-          <h2
-            style={{
-              margin: '0 0 0.25rem',
-              fontSize: '1.25rem',
-              fontWeight: 800,
-              letterSpacing: '-0.02em',
-              color: '#111827',
-            }}
-          >
-            Inventory
-          </h2>
-          <p
-            style={{
-              margin: 0,
-              color: '#4b5563',
-              fontSize: '0.9375rem',
-              fontWeight: 500,
-            }}
-          >
-            Public storefront listings
-          </p>
+        <div style={{ display: 'flex', gap: '1.5rem' }}>
+          <div>
+            <p style={{ margin: '0 0 0.125rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Total Listing Value
+            </p>
+            <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
+              ${totalListingValue.toFixed(2)}
+            </p>
+          </div>
+          <div>
+            <p style={{ margin: '0 0 0.125rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Total Market Value
+            </p>
+            <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
+              ${totalMarketValue.toFixed(2)}
+            </p>
+          </div>
         </div>
 
         <div
