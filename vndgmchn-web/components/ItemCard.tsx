@@ -14,8 +14,8 @@ function padIfNumeric(val: string | number | null | undefined): string {
 export default function ItemCard({ item }: Props) {
   const printedTotal = item.set_printed_total ?? item.set_total;
   const denominator = printedTotal != null ? `/${padIfNumeric(printedTotal)}` : '';
-  const setNumberDisplay = item.collector_number ? ` • ${padIfNumeric(item.collector_number)}${denominator}` : '';
-  const rarityDisplay = item.rarity ? ` • ${item.rarity}` : '';
+  const setNumberDisplay = item.collector_number ? `${padIfNumeric(item.collector_number)}${denominator}` : '';
+  const rarityDisplay = item.rarity ? `${item.rarity}` : '';
   const setNameDisplay = item.language_code === 'JA' && item.set_name_en ? item.set_name_en : item.set_name;
   
   return (
@@ -36,7 +36,7 @@ export default function ItemCard({ item }: Props) {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 0.5rem;
+          padding: 0.375rem;
           border-bottom: 1px solid #f3f4f6;
           position: relative;
           overflow: hidden;
@@ -45,8 +45,8 @@ export default function ItemCard({ item }: Props) {
           position: absolute;
           top: 0; left: 0; width: 100%; height: 100%;
           object-fit: cover;
-          filter: blur(20px);
-          opacity: 0.25;
+          filter: blur(16px);
+          opacity: 0.20;
           transform: scale(1.15);
           z-index: 0;
           pointer-events: none;
@@ -68,7 +68,7 @@ export default function ItemCard({ item }: Props) {
         
         @media (min-width: 640px) {
           .item-image-wrapper {
-            padding: 0.75rem;
+            padding: 0.5rem;
           }
           .item-image {
             max-height: 260px;
@@ -116,17 +116,17 @@ export default function ItemCard({ item }: Props) {
         <div style={{ padding: '0.625rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
             <h3 style={{ margin: 0, fontSize: '0.82rem', fontWeight: 600, color: '#111827', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-              {item.title}
+              {item.title}{item.language_code === 'JA' ? ' (JP)' : ''}
             </h3>
-            {item.language_code === 'JA' && (
-              <div style={{ backgroundColor: '#f3f4f6', border: '1px solid #e5e7eb', padding: '1px 4px', borderRadius: '4px', marginLeft: '6px', flexShrink: 0 }}>
-                <span style={{ fontSize: '10px', color: '#4b5563', fontWeight: '700' }}>JP</span>
-              </div>
-            )}
           </div>
-          {(setNameDisplay || item.collector_number || item.rarity) && (
+          {setNameDisplay && (
+            <p style={{ margin: '0 0 0.125rem', fontSize: '0.75rem', color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {setNameDisplay}
+            </p>
+          )}
+          {(setNumberDisplay || rarityDisplay) && (
             <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {setNameDisplay}{setNumberDisplay}{rarityDisplay}
+              {[setNumberDisplay, rarityDisplay].filter(Boolean).join(' • ')}
             </p>
           )}
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', marginBottom: 'auto', gap: '4px' }}>
