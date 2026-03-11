@@ -12,11 +12,10 @@ export default function StorefrontHeader({ displayName, handle, bio }: Props) {
       display: 'flex', 
       flexDirection: 'column', 
       alignItems: 'center',
-      backgroundColor: '#ffffff',
-      padding: '2.5rem 1.5rem',
+      background: 'linear-gradient(to bottom, #ffffff, #f9fafb)',
+      padding: '2rem 1.5rem',
       borderRadius: '16px',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-      border: '1px solid #f3f4f6'
+      boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
     }}>
       <div 
         style={{ 
@@ -24,7 +23,7 @@ export default function StorefrontHeader({ displayName, handle, bio }: Props) {
           backgroundColor: '#111827', color: '#ffffff', 
           display: 'flex', alignItems: 'center', justifyContent: 'center', 
           fontSize: '36px', fontWeight: '700', margin: '0 auto 1.5rem',
-          boxShadow: '0 8px 20px rgba(0,0,0,0.12)',
+          boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
           border: '3px solid #ffffff'
         }}
       >
