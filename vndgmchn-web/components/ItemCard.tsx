@@ -19,28 +19,30 @@ export default function ItemCard({ item }: Props) {
   const setNameDisplay = item.language_code === 'JA' && item.set_name_en ? item.set_name_en : item.set_name;
   
   return (
-    <div 
-      style={{ 
-        borderRadius: '12px', 
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: '#ffffff',
-        border: '1px solid #e5e7eb',
-        boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        cursor: 'pointer'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-2px)';
-        e.currentTarget.style.boxShadow = '0 10px 24px rgba(0,0,0,0.12)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = '0 6px 18px rgba(0,0,0,0.08)';
-      }}
-    >
-      <div style={{ 
+    <>
+      <style>{`
+        .storefront-item-card {
+          transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+        }
+        .storefront-item-card:hover {
+          transform: translateY(-2px) !important;
+          box-shadow: 0 10px 24px rgba(0,0,0,0.12) !important;
+        }
+      `}</style>
+      <div 
+        className="storefront-item-card"
+        style={{ 
+          borderRadius: '12px', 
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: '#ffffff',
+          border: '1px solid #e5e7eb',
+          boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
+          cursor: 'pointer'
+        }}
+      >
+        <div style={{ 
         width: '100%', 
         aspectRatio: '3/4', 
         backgroundColor: '#f9fafb',
@@ -120,5 +122,6 @@ export default function ItemCard({ item }: Props) {
         </div>
       </div>
     </div>
+    </>
   );
 }
