@@ -1,6 +1,6 @@
 import { StorefrontData } from '@/lib/storefront';
-import ItemCard from './ItemCard';
 import StorefrontHeader from './StorefrontHeader';
+import StorefrontGrid from './StorefrontGrid';
 
 // Helper for safely converting raw JPY cache values to USD for the summary
 const JPY_TO_USD = Number(process.env.NEXT_PUBLIC_JPY_TO_USD_RATE || process.env.EXPO_PUBLIC_JPY_TO_USD_RATE || 0.00637);
@@ -75,31 +75,6 @@ export default function StorefrontPage({ storefront }: Props) {
             font-size: 0.875rem;
           }
         }
-        .storefront-grid {
-          display: grid;
-          gap: 1rem;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        @media (min-width: 640px) {
-          .storefront-grid {
-            gap: 1.5rem;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .storefront-grid {
-            gap: 1.5rem;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-          }
-        }
-
-        @media (min-width: 1280px) {
-          .storefront-grid {
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-          }
-        }
       `}</style>
 
       <div className="cta-banner">
@@ -155,11 +130,7 @@ export default function StorefrontPage({ storefront }: Props) {
         </div>
       </section>
 
-      <div className="storefront-grid">
-        {storefront.items.map((item) => (
-          <ItemCard key={item.item_id} item={item} />
-        ))}
-      </div>
+      <StorefrontGrid items={storefront.items} />
     </main>
     </div>
   );
