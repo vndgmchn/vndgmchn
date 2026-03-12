@@ -156,7 +156,7 @@ export default function ItemCard({ item }: Props) {
             {adjustedMarketPrice != null ? (
               <>
                 <span style={{ fontSize: '9px', color: '#A3A3A3', display: 'block', marginBottom: '1px', fontWeight: 600 }}>MKT</span>
-                <span style={{ fontSize: '12px', color: '#A3A3A3', fontWeight: 600 }}>${adjustedMarketPrice.toFixed(2)}</span>
+                <span style={{ fontSize: '12px', color: '#A3A3A3', fontWeight: 600 }}>{formatUsd(adjustedMarketPrice)}</span>
               </>
             ) : (
                 <span style={{ fontSize: '12px', color: '#A3A3A3', display: 'block' }}>—</span>
@@ -165,7 +165,7 @@ export default function ItemCard({ item }: Props) {
           <div style={{ textAlign: 'right' }}>
             <span style={{ fontSize: '9px', color: '#A3A3A3', display: 'block', marginBottom: '1px', fontWeight: 700 }}>BUY</span>
             <strong style={{ fontSize: '17px', color: '#F5F5F5', fontWeight: 900, letterSpacing: '-0.5px' }}>
-              ${item.listing_price.toFixed(2)}
+              {formatUsd(item.listing_price)}
             </strong>
           </div>
         </div>

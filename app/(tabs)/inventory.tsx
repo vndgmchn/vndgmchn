@@ -3,7 +3,7 @@ import EmptyState from '@/components/ui/EmptyState';
 import FilterPill from '@/components/ui/FilterPill';
 import ModalShell from '@/components/ui/ModalShell';
 import SearchBar from '@/components/ui/SearchBar';
-import { convertToUsd, displayRarity, formatCollectorNumber, formatRelativeTime, formatUsd } from '@/lib/format';
+import { convertToUsd, displayRarity, formatCollectorNumber, formatRelativeTime, formatUsd, formatSetNumber } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -148,7 +148,7 @@ export default function InventoryScreen() {
                 setEditingItem(null);
                 setTitle(product.title || '');
                 const defaultUsd = (typeof product.market_price === 'number')
-                    ? (convertToUsd(product.market_price, product.currency) ?? product.market_price).toFixed(2)
+                    ? String(convertToUsd(product.market_price, product.currency) ?? product.market_price)
                     : '';
                 setListingPrice(defaultUsd); // Auto-fill with market price
                 setQuantity('1');
@@ -620,30 +620,6 @@ export default function InventoryScreen() {
         setModalVisible(true);
     };
 
-    const formatSetNumber = (externalId?: string | null, collectorNumber?: string | null, setName?: string | null, setPrintedTotal?: number | null, setTotal?: number | null) => {
-        let num = collectorNumber ?? null;
-
-        if (!num && typeof externalId === 'string' && externalId.includes('-')) {
-            const parts = externalId.split('-');
-            const last = parts[parts.length - 1];
-            if (last) num = last;
-        }
-
-        if (setName && setName.toLowerCase().includes('promo')) {
-            return num ? `${num}` : '—';
-        }
-
-        if (num && setPrintedTotal) {
-            let denomStr = String(setPrintedTotal);
-            if (setTotal && setTotal >= 100) {
-                denomStr = denomStr.padStart(3, '0');
-            }
-            return `${num}/${denomStr}`;
-        }
-        if (num && setTotal) return `${num}/${setTotal}`;
-        if (num) return `${num}`;
-        return '—';
-    };
 
     const buildTcgplayerSearchUrl = (product: { title: string; catalog_products?: any }) => {
         const queryParts: string[] = [product.title];
@@ -865,7 +841,7 @@ export default function InventoryScreen() {
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                 <Text style={{ fontSize: 9, color: theme.mutedText, marginRight: 4, fontWeight: 'bold' }}>YOU</Text>
                                 <Text style={{ color: theme.primary, fontSize: 14, fontWeight: 'bold' }}>
-                                    ${item.listing_price.toFixed(2)}
+                                    {formatUsd(item.listing_price)}
                                 </Text>
                             </View>
                         </View>
@@ -1012,7 +988,7 @@ export default function InventoryScreen() {
                         <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
                             <Text style={{ fontSize: 9, color: theme.mutedText, fontWeight: 'bold', marginBottom: 1 }}>YOU</Text>
                             <Text style={{ color: theme.primary, fontSize: 13, fontWeight: 'bold' }} numberOfLines={1} adjustsFontSizeToFit>
-                                ${item.listing_price.toFixed(2)}
+                                {formatUsd(item.listing_price)}
                             </Text>
                         </View>
                     </View>
@@ -1127,7 +1103,7 @@ export default function InventoryScreen() {
                             {formatUsd(convertToUsd(marketPrice, currency))}
                         </Text>
                         <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }} numberOfLines={1} adjustsFontSizeToFit>
-                            ${item.listing_price.toFixed(2)}
+                            {formatUsd(item.listing_price)}
                         </Text>
                     </View>
                 </View>
@@ -1327,30 +1303,30 @@ export default function InventoryScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <View style={{ flex: 1, alignItems: 'center' }}>
                             <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>LIST VALUE</Text>
-                            <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>${summaryStats.listedValue.toFixed(2)}</Text>
+                            <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.listedValue)}</Text>
                         </View>
                         <View style={{ flex: 1, alignItems: 'center' }}>
                             <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>MARKET VALUE</Text>
-                            <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>${summaryStats.marketValue.toFixed(2)}</Text>
+                            <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.marketValue)}</Text>
                         </View>
                     </View>
                 )}
                 {filter === 'PERSONAL' && (
                     <View style={{ alignItems: 'center' }}>
                         <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>MARKET VALUE</Text>
-                        <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>${summaryStats.marketValue.toFixed(2)}</Text>
+                        <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.marketValue)}</Text>
                     </View>
                 )}
                 {filter === 'SOLD' && (
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         <View style={{ flex: 1, alignItems: 'center' }}>
                             <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>SOLD VALUE</Text>
-                            <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>${summaryStats.soldValue.toFixed(2)}</Text>
+                            <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.soldValue)}</Text>
                         </View>
                         <View style={{ flex: 1, alignItems: 'center' }}>
                             <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>PROFIT</Text>
                             <Text style={{ fontSize: 13, fontWeight: '600', marginTop: 1, color: summaryStats.profitValue < 0 ? '#ef4444' : (summaryStats.profitValue > 0 ? '#10b981' : theme.text) }}>
-                                {summaryStats.profitValue < 0 ? '-' : ''}${Math.abs(summaryStats.profitValue).toFixed(2)}
+                                {summaryStats.profitValue < 0 ? '-' : ''}{formatUsd(Math.abs(summaryStats.profitValue))}
                             </Text>
                         </View>
                     </View>

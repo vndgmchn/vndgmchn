@@ -95,7 +95,7 @@ export default function StorefrontPage({ storefront }: Props) {
               Total Listing Value
             </p>
             <p style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: '#F5F5F5', letterSpacing: '-0.02em' }}>
-              {totalListingValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatUsd(totalListingValue)}
             </p>
           </div>
           <div>
@@ -103,7 +103,7 @@ export default function StorefrontPage({ storefront }: Props) {
               Total Market Value
             </p>
             <p style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: '#F5F5F5', letterSpacing: '-0.02em' }}>
-              {totalMarketValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatUsd(totalMarketValue)}
             </p>
           </div>
         </div>

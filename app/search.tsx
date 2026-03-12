@@ -1,4 +1,5 @@
-import { displayRarity, formatCollectorNumber, formatRelativeTime, formatUsd, convertToUsd } from '@/lib/format';
+import { formatRelativeTime, formatUsd, convertToUsd } from '@/lib/format';
+import { formatCollectorNumber, formatSetNumber, displayRarity } from '@/lib/format';
 import SearchBar from '@/components/ui/SearchBar';
 import EmptyState from '@/components/ui/EmptyState';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -158,57 +159,9 @@ export default function UniversalSearchModal() {
         return new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     };
 
-    const formatSetNumber = (externalId?: string | null, collectorNumber?: string | null, setName?: string | null, setPrintedTotal?: number | null, setTotal?: number | null) => {
-        let num = collectorNumber ?? null;
 
-        if (!num && typeof externalId === 'string' && externalId.includes('-')) {
-            const parts = externalId.split('-');
-            const last = parts[parts.length - 1];
-            if (last) num = last;
-        }
 
-        if (setName && setName.toLowerCase().includes('promo')) {
-            return num ? (num.match(/^\d+$/) ? num.padStart(3, '0') : num) : '—';
-        }
 
-        let formattedNum = num;
-        if (num && num.match(/^\d+$/)) {
-            formattedNum = num.padStart(3, '0');
-        }
-
-        if (formattedNum && setPrintedTotal) {
-            let denomStr = String(setPrintedTotal);
-            const effectiveTotal = setTotal ?? setPrintedTotal;
-            if (effectiveTotal >= 100) {
-                denomStr = denomStr.padStart(3, '0');
-            }
-            return `${formattedNum}/${denomStr}`;
-        }
-        if (formattedNum && setTotal) {
-            let denomStr = String(setTotal);
-            if (setTotal >= 100) {
-                denomStr = denomStr.padStart(3, '0');
-            }
-            return `${formattedNum}/${denomStr}`;
-        }
-        if (formattedNum) return `${formattedNum}`;
-        return '—';
-    };
-
-    const normalizeRarity = (item: CatalogProduct) => {
-        if (!item.rarity) return null;
-        if (item.language_code !== 'JA') return item.rarity;
-
-        switch (item.rarity) {
-            case '通常': return 'Common';
-            case 'レア': return 'Rare';
-            case 'レアホロ': return 'Holo Rare';
-            case '希少': return 'Rare';
-            case 'アンコモン': return 'Uncommon';
-            case 'コモン': return 'Common';
-            default: return item.rarity;
-        }
-    };
 
     const buildTcgplayerSearchUrl = (item: CatalogProduct) => {
         const queryParts: string[] = [item.name];
