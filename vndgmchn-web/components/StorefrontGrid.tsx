@@ -94,17 +94,18 @@ export default function StorefrontGrid({ items }: Props) {
         .search-input {
           width: 100%;
           padding: 0.75rem 1rem;
-          border-radius: 8px;
-          border: 1px solid #e5e7eb;
-          background-color: #ffffff;
+          border-radius: 6px;
+          border: none;
+          background-color: #1E1E1E;
           font-size: 0.9375rem;
-          outline: none;
-          transition: border-color 0.2s;
-          color: #111827;
+          outline: auto;
+          outline-color: transparent;
+          transition: outline-color 0.2s;
+          color: #F5F5F5;
         }
         
         .search-input:focus {
-          border-color: #10b981;
+          outline-color: #10b981;
         }
         
         .filters-row {
@@ -117,8 +118,8 @@ export default function StorefrontGrid({ items }: Props) {
         
         .pill-group {
           display: flex;
-          background-color: #e5e7eb;
-          border-radius: 8px;
+          background-color: #1E1E1E;
+          border-radius: 6px;
           padding: 3px;
           overflow: hidden;
         }
@@ -129,48 +130,49 @@ export default function StorefrontGrid({ items }: Props) {
           font-weight: 600;
           border-radius: 6px;
           cursor: pointer;
-          color: #4b5563;
+          color: #A3A3A3;
           border: none;
           background: transparent;
           transition: all 0.2s ease;
         }
         
         .pill.active {
-          background-color: #ffffff;
-          color: #111827;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          background-color: #121212;
+          color: #F5F5F5;
+          box-shadow: none;
         }
         
         .sort-select {
           padding: 0.45rem 1rem;
           font-size: 0.75rem;
           font-weight: 600;
-          border-radius: 8px;
-          border: 1px solid #e5e7eb;
-          background-color: #ffffff;
-          color: #111827;
+          border-radius: 6px;
+          border: none;
+          background-color: #1E1E1E;
+          color: #F5F5F5;
           cursor: pointer;
           appearance: none;
-          background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+          background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23A3A3A3%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
           background-repeat: no-repeat;
           background-position: right 0.7rem top 50%;
           background-size: 0.65rem auto;
           padding-right: 2rem;
-          outline: none;
+          outline: auto;
+          outline-color: transparent;
         }
         
         .sort-select:focus {
-          border-color: #10b981;
+          outline-color: #10b981;
         }
         
         .empty-state {
           padding: 4rem 1rem;
           text-align: center;
-          color: #6b7280;
-          background: #ffffff;
-          border-radius: 12px;
-          border: 1px dashed #e5e7eb;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+          color: #A3A3A3;
+          background: #1E1E1E;
+          border-radius: 6px;
+          border: none;
+          box-shadow: none;
         }
       `}</style>
       

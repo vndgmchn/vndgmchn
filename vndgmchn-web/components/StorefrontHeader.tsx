@@ -76,14 +76,14 @@ export default function StorefrontHeader({ displayName, handle, bio }: Props) {
         border: none;
         padding: 0.375rem;
         cursor: pointer;
-        color: #9ca3af;
+        color: #A3A3A3;
         transition: color 0.2s;
         display: flex;
         align-items: center;
         justify-content: center;
       }
       .storefront-share-btn:hover {
-        color: #4b5563;
+        color: #F5F5F5;
       }
 
       @media (min-width: 640px) {
@@ -118,20 +118,20 @@ export default function StorefrontHeader({ displayName, handle, bio }: Props) {
     <div 
       className="storefront-header-card"
       style={{ 
-      background: 'linear-gradient(to bottom, #ffffff, #f9fafb)',
-      borderRadius: '16px',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
+      background: '#1E1E1E',
+      borderRadius: '6px',
+      boxShadow: 'none'
     }}>
       {/* Left: Avatar */}
       <div 
         className="storefront-avatar"
         style={{ 
           borderRadius: '50%', 
-          backgroundColor: '#111827', color: '#ffffff', 
+          backgroundColor: '#121212', color: '#F5F5F5', 
           display: 'flex', alignItems: 'center', justifyContent: 'center', 
           fontWeight: '700',
-          boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
-          border: '3px solid #ffffff'
+          boxShadow: 'none',
+          border: 'none'
         }}
       >
         {displayName ? displayName.charAt(0).toUpperCase() : handle.charAt(0).toUpperCase()}
@@ -139,15 +139,15 @@ export default function StorefrontHeader({ displayName, handle, bio }: Props) {
 
       {/* Right: Content */}
       <div className="storefront-content">
-        <h1 className="storefront-title" style={{ fontWeight: '800', color: '#111827', letterSpacing: '-0.04em' }}>
+        <h1 className="storefront-title" style={{ fontWeight: '800', color: '#F5F5F5', letterSpacing: '-0.04em' }}>
           {displayName || `@${handle}`}
         </h1>
-        <p className="storefront-handle" style={{ color: '#6b7280', fontWeight: 600, letterSpacing: '-0.01em' }}>
+        <p className="storefront-handle" style={{ color: '#A3A3A3', fontWeight: 600, letterSpacing: '-0.01em' }}>
           @{handle}
         </p>
         
         {bio && (
-          <p className="storefront-bio" style={{ color: '#4b5563', lineHeight: 1.5, fontWeight: 400 }}>
+          <p className="storefront-bio" style={{ color: '#A3A3A3', lineHeight: 1.5, fontWeight: 400 }}>
             {bio}
           </p>
         )}

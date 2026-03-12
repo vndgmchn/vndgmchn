@@ -1,3 +1,8 @@
+import { convertJpyHeuristic, displayRarity, formatCollectorNumber, formatUsd } from '@/lib/format';
+import EmptyState from '@/components/ui/EmptyState';
+import FilterPill from '@/components/ui/FilterPill';
+import ModalShell from '@/components/ui/ModalShell';
+import SearchBar from '@/components/ui/SearchBar';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { normalizeHandle } from '@/lib/utils';
@@ -5,42 +10,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useCallback, useState, useMemo } from 'react';
 import { ActivityIndicator, FlatList, Image, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Share } from 'react-native';
-
-// Map common Japanese rarities to standard English abbreviations or names
-const JA_RARITY_MAP: Record<string, string> = {
-    'コモン': 'Common',
-    'アンコモン': 'Uncommon',
-    'レア': 'Rare',
-    'スーパーレア': 'Super Rare',
-    'シークレット': 'Secret',
-    'シークレットレア': 'Secret Rare',
-    'パラレル': 'Parallel',
-    'プロモ': 'Promo',
-    'リーダー': 'Leader',
-    'スペシャルカード': 'Special Card',
-    'トリプルレア': 'Triple Rare',
-    'ダブルレア': 'Double Rare',
-    'ウルトラレア': 'Ultra Rare',
-    'スペシャルアートレア': 'Special Art Rare',
-    'シークレットスーパーレア': 'Secret Super Rare',
-};
-
-// Fallback heuristic: If it is Japanese and the market price is suspiciously large (e.g. >= 1000), 
-// it is likely cached in raw JPY. Convert it.
-const JPY_TO_USD = Number(process.env.EXPO_PUBLIC_JPY_TO_USD_RATE || process.env.NEXT_PUBLIC_JPY_TO_USD_RATE || 0.00637);
-
-function adjustMarketPrice(price: number | null | undefined, langCode: string | null | undefined): number | null {
-    if (typeof price !== 'number' || price === null) return null;
-    if (langCode === 'JA' && price >= 1000) {
-       return price * JPY_TO_USD;
-    }
-    return price;
-}
-
-function translateRarity(rarity: string | null | undefined): string {
-    if (!rarity) return '';
-    return JA_RARITY_MAP[rarity] || rarity;
-}
 
 export default function MarketplaceScreen() {
     const theme = useThemeColors();
@@ -121,19 +90,9 @@ export default function MarketplaceScreen() {
     const handleSearch = () => executeSearch(searchHandle, false);
     const onRefresh = useCallback(() => executeSearch(searchHandle, true), [searchHandle]);
 
-    const formatCurrency = (amount: number) => {
-        return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    };
-
     const formatDate = (dateString?: string | null) => {
         if (!dateString) return 'Missing Cache';
         return new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    };
-
-    const padIfNumeric = (val: string | number | null | undefined): string => {
-        if (val === null || val === undefined) return '';
-        const s = String(val);
-        return /^\d+$/.test(s) ? s.padStart(3, '0') : s;
     };
 
 
@@ -176,8 +135,8 @@ export default function MarketplaceScreen() {
                         {(item.collector_number || item.rarity) && (
                             <Text style={[styles.itemMeta, { color: theme.mutedText, fontSize: numColumns === 3 ? 9 : 10, marginTop: 0, marginBottom: 6 }]} numberOfLines={1}>
                                 {[
-                                    item.collector_number ? `${padIfNumeric(item.collector_number)}${(item.set_printed_total ?? item.set_total) != null ? `/${padIfNumeric(item.set_printed_total ?? item.set_total)}` : ''}` : '',
-                                    translateRarity(item.rarity)
+                                    formatCollectorNumber(item.collector_number, item.set_printed_total ?? item.set_total),
+                                    displayRarity(item.rarity)
                                 ].filter(Boolean).join(' • ')}
                             </Text>
                         )}
@@ -187,11 +146,11 @@ export default function MarketplaceScreen() {
                                     <Text style={{ fontSize: 9, color: '#fff', fontWeight: 'bold' }}>SEALED</Text>
                                 </View>
                             ) : item.is_graded && item.grading_company && item.grade != null ? (
-                                <View style={{ backgroundColor: theme.border, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, marginRight: 6 }}>
+                                <View style={{ backgroundColor: theme.background, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, marginRight: 6 }}>
                                     <Text style={{ fontSize: 9, color: theme.text, fontWeight: 'bold' }}>{item.grading_company} {item.grade}</Text>
                                 </View>
                             ) : item.condition ? (
-                                <View style={{ backgroundColor: theme.border, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, marginRight: 6 }}>
+                                <View style={{ backgroundColor: theme.background, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, marginRight: 6 }}>
                                     <Text style={{ fontSize: 9, color: theme.text, fontWeight: 'bold' }}>{item.condition}</Text>
                                 </View>
                             ) : null}
@@ -199,12 +158,12 @@ export default function MarketplaceScreen() {
                         </View>
                     </View>
                     <View style={styles.itemFooter}>
-                        <Text style={[styles.itemPrice, { color: theme.success, fontSize: numColumns === 3 ? 13 : 16 }]}>{formatCurrency(item.listing_price || 0)}</Text>
+                        <Text style={[styles.itemPrice, { color: theme.success, fontSize: numColumns === 3 ? 13 : 16 }]}>{formatUsd(item.listing_price || 0)}</Text>
                         <View style={{ alignItems: 'flex-end' }}>
                             {item.last_updated && typeof item.market_price === 'number' ? (
                                 <>
                                     <Text style={[styles.itemMarketPrice, { color: theme.mutedText, fontSize: numColumns === 3 ? 9 : 10 }]}>
-                                        Mkt: {formatCurrency(adjustMarketPrice(item.market_price, item.language_code) || 0)}
+                                        Mkt: {formatUsd(convertJpyHeuristic(item.market_price, item.language_code))}
                                     </Text>
                                     <Text style={[styles.itemMarketPrice, { color: theme.mutedText, fontSize: numColumns === 3 ? 8 : 9 }]}>
                                         As of: {formatDate(item.last_updated)}
@@ -234,7 +193,7 @@ export default function MarketplaceScreen() {
     const totalListValue = validItems.reduce((acc, current) => acc + ((parseFloat(current.listing_price) || 0) * (current.quantity || 1)), 0);
     const totalMarketValue = validItems.reduce((acc, current) => {
         const rawMarketPrice = typeof current.market_price === 'number' ? current.market_price : parseFloat(current.market_price);
-        return acc + ((adjustMarketPrice(rawMarketPrice, current.language_code) || 0) * (current.quantity || 1));
+        return acc + ((convertJpyHeuristic(rawMarketPrice, current.language_code) || 0) * (current.quantity || 1));
     }, 0);
 
     const displayItems = useMemo(() => {
@@ -290,15 +249,15 @@ export default function MarketplaceScreen() {
             <View style={styles.searchSection}>
                 <View style={styles.searchRow}>
                     <Text style={[styles.atSymbol, { color: theme.mutedText }]}>@</Text>
-                    <TextInput
-                        style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }]}
+                    <SearchBar
+                        style={{ flex: 1, marginRight: 10 }}
                         value={searchHandle}
                         onChangeText={setSearchHandle}
                         placeholder="mystic_vendor"
-                        placeholderTextColor={theme.mutedText}
                         autoCapitalize="none"
-                        onSubmitEditing={handleSearch}
                         returnKeyType="search"
+                        onSubmitEditing={handleSearch}
+                        onClear={() => setSearchHandle('')}
                     />
                     <TouchableOpacity
                         style={[styles.button, { backgroundColor: theme.primary }]}
@@ -333,9 +292,9 @@ export default function MarketplaceScreen() {
                         ListHeaderComponent={
                             <View style={styles.listHeaderBlock}>
                                 {/* Storefront Header */}
-                                <View style={[styles.profileHeader, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                <View style={[styles.profileHeader, { backgroundColor: theme.surface }]}>
                                     <View style={styles.profileRow}>
-                                        <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary, borderColor: theme.surface }]}>
+                                        <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
                                             <Text style={[styles.avatarText, { color: '#fff' }]}>
                                                 {profile.display_name ? profile.display_name.charAt(0).toUpperCase() : profile.handle.charAt(0).toUpperCase()}
                                             </Text>
@@ -355,7 +314,7 @@ export default function MarketplaceScreen() {
                                         </View>
                                         <View style={styles.profileActions}>
                                             <TouchableOpacity 
-                                                style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                                                style={[styles.iconButton, { backgroundColor: theme.background }]}
                                                 onPress={() => {
                                                     Share.share({
                                                         message: `Check out ${profile.display_name || profile.handle}'s storefront: https://vndgmchn.com/${profile.handle}`,
@@ -373,12 +332,12 @@ export default function MarketplaceScreen() {
                                 <View style={styles.statsRow}>
                                     <View style={styles.statColumn}>
                                         <Text style={[styles.statLabel, { color: theme.mutedText }]}>Total Listing Value</Text>
-                                        <Text style={[styles.statValue, { color: theme.text }]}>{formatCurrency(totalListValue)}</Text>
+                                        <Text style={[styles.statValue, { color: theme.text }]}>{formatUsd(totalListValue)}</Text>
                                     </View>
                                     <View style={styles.statColumn}>
                                         <Text style={[styles.statLabel, { color: theme.mutedText }]}>Total Market Value</Text>
                                         <Text style={[styles.statValue, { color: theme.text }]}>
-                                            {totalMarketValue > 0 ? formatCurrency(totalMarketValue) : '--'}
+                                            {totalMarketValue > 0 ? formatUsd(totalMarketValue) : '--'}
                                         </Text>
                                     </View>
                                     <View style={[styles.statColumn, { alignItems: 'flex-end', justifyContent: 'flex-end', paddingBottom: 2 }]}>
@@ -408,84 +367,70 @@ export default function MarketplaceScreen() {
 
                                 {/* Filters & Sort */}
                                 <View style={styles.filterSection}>
-                                    <TextInput
-                                        style={[styles.smallInput, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }]}
+                                    <SearchBar
+                                        style={{ marginBottom: 12 }}
                                         value={storefrontSearchQuery}
                                         onChangeText={setStorefrontSearchQuery}
                                         placeholder="Search title or set..."
-                                        placeholderTextColor={theme.mutedText}
                                         autoCapitalize="none"
                                         returnKeyType="done"
+                                        onClear={() => setStorefrontSearchQuery('')}
                                     />
                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterScrollContent}>
-                                        {/* Type Filter */}
-                                        {(['All', 'Cards', 'Sealed'] as const).map(type => (
-                                            <TouchableOpacity
-                                                key={type}
-                                                style={[styles.filterChip, { borderColor: theme.border }, filterType === type && { backgroundColor: theme.primary, borderColor: theme.primary }]}
-                                                onPress={() => setFilterType(type)}
-                                            >
-                                                <Text style={[styles.filterChipText, { color: theme.text }, filterType === type && { color: '#fff' }]}>{type}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                        
-                                        <View style={[styles.filterSeparator, { backgroundColor: theme.border }]} />
-                                        
-                                        {/* Language Filter */}
-                                        {(['All', 'English', 'Japanese'] as const).map(lang => (
-                                            <TouchableOpacity
-                                                key={lang}
-                                                style={[styles.filterChip, { borderColor: theme.border }, filterLang === lang && { backgroundColor: theme.primary, borderColor: theme.primary }]}
-                                                onPress={() => setFilterLang(lang)}
-                                            >
-                                                <Text style={[styles.filterChipText, { color: theme.text }, filterLang === lang && { color: '#fff' }]}>{lang === 'All' ? 'All Langs' : lang === 'English' ? 'EN' : 'JP'}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                        
-                                        <View style={[styles.filterSeparator, { backgroundColor: theme.border }]} />
-                                        
-                                        {/* Sort */}
-                                        {(['Recent', 'Price high-low', 'Price low-high', 'Name A-Z'] as const).map(sort => (
-                                            <TouchableOpacity
-                                                key={sort}
-                                                style={[styles.filterChip, { borderColor: theme.border }, sortBy === sort && { backgroundColor: theme.secondary, borderColor: theme.secondary }]}
-                                                onPress={() => setSortBy(sort)}
-                                            >
-                                                <Text style={[styles.filterChipText, { color: theme.text }, sortBy === sort && { color: '#fff' }]}>{sort === 'Recent' ? 'Recent' : sort === 'Price high-low' ? '$$ - $' : sort === 'Price low-high' ? '$ - $$' : 'A-Z'}</Text>
-                                            </TouchableOpacity>
-                                        ))}
+                                    {(['All', 'Cards', 'Sealed'] as const).map(type => (
+                                        <FilterPill
+                                            key={type}
+                                            label={type}
+                                            active={filterType === type}
+                                            onPress={() => setFilterType(type)}
+                                        />
+                                    ))}
+
+                                    <View style={[styles.filterSeparator, { backgroundColor: theme.border }]} />
+
+                                    {(['All', 'English', 'Japanese'] as const).map(lang => (
+                                        <FilterPill
+                                            key={lang}
+                                            label={lang === 'All' ? 'All Langs' : lang === 'English' ? 'EN' : 'JP'}
+                                            active={filterLang === lang}
+                                            onPress={() => setFilterLang(lang)}
+                                        />
+                                    ))}
+
+                                    <View style={[styles.filterSeparator, { backgroundColor: theme.border }]} />
+
+                                    {(['Recent', 'Price high-low', 'Price low-high', 'Name A-Z'] as const).map(sort => (
+                                        <FilterPill
+                                            key={sort}
+                                            label={sort === 'Recent' ? 'Recent' : sort === 'Price high-low' ? '$$ - $' : sort === 'Price low-high' ? '$ - $$' : 'A-Z'}
+                                            active={sortBy === sort}
+                                            onPress={() => setSortBy(sort)}
+                                            activeColor={theme.secondary}
+                                        />
+                                    ))}
                                     </ScrollView>
                                 </View>
 
-                                <View style={[styles.divider, { backgroundColor: theme.border, marginTop: 10 }]} />
+                                <View style={{ height: 16 }} />
                             </View>
                         }
                         ListEmptyComponent={
-                            <View style={styles.emptyStateContainer}>
-                                <Ionicons name="storefront-outline" size={48} color={theme.mutedText} style={{ marginBottom: 16 }} />
-                                <Text style={[styles.emptyText, { color: theme.mutedText }]}>
-                                    Nothing for sale right now.
-                                </Text>
-                            </View>
+                            <EmptyState
+                                icon="storefront-outline"
+                                title="Nothing for sale right now."
+                                style={{ marginTop: 40 }}
+                            />
                         }
                     />
                 </View>
             ) : null}
 
             {/* Item Detail Modal */}
-            <Modal
+            <ModalShell
                 visible={!!selectedItem}
-                animationType="slide"
-                transparent={true}
-                onRequestClose={() => setSelectedItem(null)}
+                onClose={() => setSelectedItem(null)}
+                type="bottom-sheet"
             >
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
-                        <View style={styles.modalHeader}>
-                            <TouchableOpacity onPress={() => setSelectedItem(null)} style={styles.closeButton}>
-                                <Ionicons name="close" size={28} color={theme.text} />
-                            </TouchableOpacity>
-                        </View>
 
                         {selectedItem && (
                             <ScrollView contentContainerStyle={styles.modalScroll}>
@@ -516,8 +461,8 @@ export default function MarketplaceScreen() {
                                 {(selectedItem.collector_number || selectedItem.rarity) && (
                                     <Text style={[styles.modalMeta, { color: theme.mutedText, marginTop: 0, marginBottom: 12 }]}>
                                         {[
-                                            selectedItem.collector_number ? `${padIfNumeric(selectedItem.collector_number)}${(selectedItem.set_printed_total ?? selectedItem.set_total) != null ? `/${padIfNumeric(selectedItem.set_printed_total ?? selectedItem.set_total)}` : ''}` : '',
-                                            translateRarity(selectedItem.rarity)
+                                            formatCollectorNumber(selectedItem.collector_number, selectedItem.set_printed_total ?? selectedItem.set_total),
+                                            displayRarity(selectedItem.rarity)
                                         ].filter(Boolean).join(' • ')}
                                     </Text>
                                 )}
@@ -541,13 +486,13 @@ export default function MarketplaceScreen() {
 
                                 <View style={styles.modalPriceRow}>
                                     <Text style={[styles.modalPrice, { color: theme.success }]}>
-                                        {formatCurrency(selectedItem.listing_price || 0)}
+                                        {formatUsd(selectedItem.listing_price || 0)}
                                     </Text>
                                 </View>
 
                                 {selectedItem.last_updated && typeof selectedItem.market_price === 'number' ? (
                                     <Text style={[styles.modalMeta, { color: theme.mutedText }]}>
-                                        Current Scrydex Market: {formatCurrency(adjustMarketPrice(selectedItem.market_price, selectedItem.language_code) || 0)}
+                                        Current Scrydex Market: {formatUsd(convertJpyHeuristic(selectedItem.market_price, selectedItem.language_code))}
                                         {'\n'}As of: {formatDate(selectedItem.last_updated)}
                                     </Text>
                                 ) : (
@@ -557,10 +502,8 @@ export default function MarketplaceScreen() {
                                     </Text>
                                 )}
                             </ScrollView>
-                        )}
-                    </View>
-                </View>
-            </Modal>
+                )}
+            </ModalShell>
         </View>
     );
 }
@@ -591,17 +534,9 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginRight: 8,
     },
-    input: {
-        flex: 1,
-        borderWidth: 1,
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        marginRight: 10,
-    },
     button: {
         padding: 14,
-        borderRadius: 8,
+        borderRadius: 6,
         alignItems: 'center',
         justifyContent: 'center',
         minWidth: 80,
@@ -621,25 +556,10 @@ const styles = StyleSheet.create({
         paddingTop: 10,
     },
     profileHeader: {
-        marginHorizontal: 20,
+        marginHorizontal: 16,
         marginBottom: 20,
         padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.04,
-                shadowRadius: 8,
-            },
-            android: {
-                elevation: 2,
-            },
-            web: {
-                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-            }
-        }),
+        borderRadius: 6,
     },
     profileRow: {
         flexDirection: 'row',
@@ -647,27 +567,12 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     avatarPlaceholder: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
-        borderWidth: 3,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.1,
-                shadowRadius: 6,
-            },
-            android: {
-                elevation: 4,
-            },
-            web: {
-                boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
-            }
-        }),
     },
     avatarText: {
         fontSize: 28,
@@ -706,7 +611,6 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 1,
     },
     toggleRow: {
         flexDirection: 'row',
@@ -737,28 +641,13 @@ const styles = StyleSheet.create({
     },
     columnWrapper: {
         justifyContent: 'space-between',
-        marginBottom: 12,
+        marginBottom: 16,
     },
     itemCard: {
         flex: 1,
-        borderRadius: 12,
-        borderWidth: 1,
+        borderRadius: 6,
         overflow: 'hidden',
         marginHorizontal: 4,
-        ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.08,
-                shadowRadius: 12,
-            },
-            android: {
-                elevation: 3,
-            },
-            web: {
-                boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
-            }
-        }),
     },
     imagePlaceholder: {
         width: '100%',
@@ -766,8 +655,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 6,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(0,0,0,0.05)',
     },
     itemDetails: {
         padding: 10,
@@ -798,10 +685,8 @@ const styles = StyleSheet.create({
     },
     statsRow: {
         flexDirection: 'row',
-        marginHorizontal: 20,
+        marginHorizontal: 16,
         paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(0,0,0,0.05)',
         marginBottom: 16,
         justifyContent: 'space-between',
         flexWrap: 'wrap',
@@ -833,16 +718,9 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     filterSection: {
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         marginBottom: 10,
         marginTop: 6,
-    },
-    smallInput: {
-        borderWidth: 1,
-        borderRadius: 8,
-        padding: 10,
-        fontSize: 14,
-        marginBottom: 10,
     },
     filterScroll: {
         flexDirection: 'row',
@@ -866,24 +744,6 @@ const styles = StyleSheet.create({
         width: 1,
         height: 20,
         marginRight: 8,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
-    },
-    modalContent: {
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        minHeight: '60%',
-        maxHeight: '90%',
-    },
-    modalHeader: {
-        alignItems: 'flex-end',
-        padding: 16,
-    },
-    closeButton: {
-        padding: 8,
     },
     modalScroll: {
         paddingHorizontal: 24,

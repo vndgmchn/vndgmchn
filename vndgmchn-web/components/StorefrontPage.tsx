@@ -1,18 +1,7 @@
 import { StorefrontData } from '@/lib/storefront';
+import { convertJpyHeuristic, formatUsd } from '@/lib/format';
 import StorefrontHeader from './StorefrontHeader';
 import StorefrontGrid from './StorefrontGrid';
-
-// Helper for safely converting raw JPY cache values to USD for the summary
-const JPY_TO_USD = Number(process.env.NEXT_PUBLIC_JPY_TO_USD_RATE || process.env.EXPO_PUBLIC_JPY_TO_USD_RATE || 0.00637);
-function getAdjustedMarketPrice(price: number | null | undefined, langCode: string | null | undefined): number {
-  if (typeof price !== 'number' || price === null) return 0;
-  if (langCode === 'JA' && price >= 1000) return price * JPY_TO_USD;
-  return price;
-}
-
-function formatCurrency(value: number): string {
-  return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 type Props = {
   storefront: StorefrontData;
@@ -25,30 +14,30 @@ export default function StorefrontPage({ storefront }: Props) {
   storefront.items.forEach(item => {
     const qty = item.quantity || 1;
     totalListingValue += (item.listing_price || 0) * qty;
-    totalMarketValue += getAdjustedMarketPrice(item.market_price, item.language_code) * qty;
+    totalMarketValue += (convertJpyHeuristic(item.market_price, item.language_code) ?? 0) * qty;
   });
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#121212' }}>
       <main className="main-container">
       <style>{`
         .main-container {
           padding: 1rem 0.75rem 2rem;
           max-width: 1280px;
           margin: 0 auto;
-          color: #111827;
+          color: #F5F5F5;
         }
 
         .cta-banner {
-          background-color: #111827;
-          color: white;
+          background-color: #1E1E1E;
+          color: #F5F5F5;
           padding: 0.75rem 1rem;
-          border-radius: 8px;
+          border-radius: 6px;
           margin-bottom: 1.5rem;
           display: flex;
           justify-content: space-between;
           align-items: center;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          box-shadow: none;
         }
         
         .cta-banner-text {
@@ -57,8 +46,8 @@ export default function StorefrontPage({ storefront }: Props) {
         }
         
         .cta-banner-btn {
-          background-color: white;
-          color: #111827;
+          background-color: #F5F5F5;
+          color: #121212;
           border: none;
           padding: 0.375rem 0.75rem;
           border-radius: 6px;
@@ -92,7 +81,7 @@ export default function StorefrontPage({ storefront }: Props) {
         style={{
           marginBottom: '1.5rem',
           paddingBottom: '1rem',
-          borderBottom: '1px solid #e5e7eb',
+          borderBottom: 'none',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -102,26 +91,26 @@ export default function StorefrontPage({ storefront }: Props) {
       >
         <div style={{ display: 'flex', gap: '1.5rem' }}>
           <div>
-            <p style={{ margin: '0 0 0.125rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <p style={{ margin: '0 0 0.125rem', color: '#A3A3A3', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Total Listing Value
             </p>
-            <p style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
-              ${formatCurrency(totalListingValue)}
+            <p style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: '#F5F5F5', letterSpacing: '-0.02em' }}>
+              {totalListingValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
           <div>
-            <p style={{ margin: '0 0 0.125rem', color: '#6b7280', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <p style={{ margin: '0 0 0.125rem', color: '#A3A3A3', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Total Market Value
             </p>
-            <p style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>
-              ${formatCurrency(totalMarketValue)}
+            <p style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: '#F5F5F5', letterSpacing: '-0.02em' }}>
+              {totalMarketValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
         </div>
 
         <div
           style={{
-            color: '#6b7280',
+            color: '#A3A3A3',
             fontSize: '0.875rem',
             fontWeight: 600,
           }}

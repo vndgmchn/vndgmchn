@@ -1,50 +1,16 @@
-# Welcome to your Expo app 👋
+# VNDG MCHN v1 Walking Skeleton
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+This is the initial walking skeleton for VNDG MCHN v1.
+It implements Supabase authentication, Expo Router layout auth guards, and a 4-tab bottom navigation pane.
 
-## Get started
+## Run & Test Checklist
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- [ ] Open a terminal in this directory (`vndgmchn`).
+- [ ] Run `npx expo start`.
+- [ ] Scan the QR code with Expo Go on your mobile device, or press `i`/`a` to open in your simulator.
+- [ ] **Test Auth Guard**: You should be presented with the Sign In / Sign Up screen initially since you are logged out.
+- [ ] **Test Sign Up**: Enter a valid email and password, then tap **Sign up**. If email confirmations are enabled in Supabase, check your inbox. Otherwise, the session will start.
+- [ ] **Test Sign In**: Enter your credentials and tap **Sign in**. The app should route you to the Home tab.
+- [ ] **Test Tabs**: Verify that there are 4 tabs at the bottom: Home, Inventory, Calculator, and Marketplace. Tap through each tab and verify the screen changes appropriately.
+- [ ] **Test Session Persistence**: Reload the app (`r` in console) or force close Expo Go. When the app reopens, verify you are still authenticated and routed directly to the Home tab.
+- [ ] **Test Sign Out**: On the Home tab, tap the **Sign Out** button. You should be instantly routed back to the Sign In screen.
