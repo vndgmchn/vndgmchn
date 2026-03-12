@@ -1330,14 +1330,14 @@ export default function InventoryScreen() {
                             key={f}
                             style={[
                                 styles.filterTab,
-                                filter === f && { borderBottomColor: theme.primary, borderBottomWidth: 2 }
+                                filter === f ? { backgroundColor: theme.primary } : { backgroundColor: theme.surface }
                             ]}
                             onPress={() => setFilter(f as any)}
                         >
                             <Text style={{
-                                color: filter === f ? theme.primary : theme.mutedText,
+                                color: filter === f ? '#fff' : theme.text,
                                 fontSize: 13,
-                                fontWeight: filter === f ? '700' : '500'
+                                fontWeight: filter === f ? 'bold' : '600'
                             }}>
                                 {f.replace('_', ' ')}
                             </Text>
@@ -1347,7 +1347,7 @@ export default function InventoryScreen() {
             </View>
 
             <View style={styles.searchRowContainer}>
-                <View style={[styles.searchInputWrapper, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={[styles.searchInputWrapper, { backgroundColor: theme.surface }]}>
                     <Ionicons name="search" size={18} color={theme.mutedText} style={{ marginRight: 8 }} />
                     <TextInput
                         style={[styles.searchInput, { color: theme.text }]}
@@ -1971,15 +1971,15 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     filterContainer: {
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#ccc',
+        paddingVertical: 12,
     },
     filterScroll: {
         paddingHorizontal: 16,
     },
     filterTab: {
-        paddingVertical: 12,
-        paddingHorizontal: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 24,
         marginRight: 8,
     },
     searchRowContainer: {
@@ -1993,7 +1993,6 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 12,
         height: 40,
