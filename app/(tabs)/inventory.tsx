@@ -1894,8 +1894,7 @@ const styles = StyleSheet.create({
     binderItemCard: {
         width: '32%',
         aspectRatio: 0.75,
-        borderRadius: 8,
-        borderWidth: 1,
+        borderRadius: 6,
         overflow: 'hidden',
         marginBottom: 8,
         ...Platform.select({
@@ -1931,10 +1930,9 @@ const styles = StyleSheet.create({
     },
     gridItemCard: {
         flex: 1,
-        borderRadius: 12,
-        borderWidth: 1,
+        borderRadius: 6,
         overflow: 'hidden',
-        marginBottom: 12,
+        marginBottom: 10,
         ...Platform.select({
             ios: {
                 shadowColor: '#000',
@@ -1955,9 +1953,7 @@ const styles = StyleSheet.create({
         aspectRatio: 0.75,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 6,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(0,0,0,0.05)',
+        padding: 4,
     },
     addButtonText: {
         color: '#fff',
@@ -2116,9 +2112,8 @@ const styles = StyleSheet.create({
         paddingTop: 0,
     },
     itemCard: {
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
+        padding: 8,
+        borderRadius: 6,
         marginBottom: 8,
         flexDirection: 'row',
         ...Platform.select({
@@ -2139,13 +2134,11 @@ const styles = StyleSheet.create({
     imagePlaceholder: {
         width: 60,
         height: 84,
-        borderRadius: 8,
+        borderRadius: 4,
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
         padding: 4,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)'
     },
     itemHeader: {
         flexDirection: 'row',
