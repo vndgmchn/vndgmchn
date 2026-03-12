@@ -148,12 +148,12 @@ export default function MarketplaceScreen() {
                 onPress={() => setSelectedItem(item)}
                 style={[styles.itemCard, { backgroundColor: theme.surface, borderColor: theme.border, maxWidth: numColumns === 2 ? '48%' : '31%' }]}
             >
-                <View style={[styles.imagePlaceholder, { backgroundColor: theme.border }]}>
+                <View style={[styles.imagePlaceholder, { backgroundColor: theme.background }]}>
                     {imageUrl ? (
                         <Image
                             source={{ uri: imageUrl }}
                             style={{ width: '100%', height: '100%' }}
-                            resizeMode="cover"
+                            resizeMode="contain"
                             defaultSource={{ uri: 'https://via.placeholder.com/100x140?text=No+Image' }}
                         />
                     ) : (
@@ -333,22 +333,22 @@ export default function MarketplaceScreen() {
                         ListHeaderComponent={
                             <View style={styles.listHeaderBlock}>
                                 {/* Storefront Header */}
-                                <View style={styles.profileHeader}>
+                                <View style={[styles.profileHeader, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                                     <View style={styles.profileRow}>
-                                        <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary }]}>
-                                            <Text style={styles.avatarText}>
+                                        <View style={[styles.avatarPlaceholder, { backgroundColor: theme.primary, borderColor: theme.surface }]}>
+                                            <Text style={[styles.avatarText, { color: '#fff' }]}>
                                                 {profile.display_name ? profile.display_name.charAt(0).toUpperCase() : profile.handle.charAt(0).toUpperCase()}
                                             </Text>
                                         </View>
                                         <View style={styles.profileInfo}>
-                                            <Text style={[styles.displayName, { color: theme.text }]}>
+                                            <Text style={[styles.displayName, { color: theme.text }]} numberOfLines={1}>
                                                 {profile.display_name || `@${profile.handle}`}
                                             </Text>
                                             <Text style={[styles.handleDesc, { color: theme.mutedText }]}>
                                                 @{profile.handle}
                                             </Text>
                                             {profile.bio && (
-                                                <Text style={[styles.bio, { color: theme.text, marginTop: 4 }]} numberOfLines={3}>
+                                                <Text style={[styles.bio, { color: theme.text }]} numberOfLines={4}>
                                                     {profile.bio}
                                                 </Text>
                                             )}
@@ -363,28 +363,27 @@ export default function MarketplaceScreen() {
                                                     });
                                                 }}
                                             >
-                                                <Ionicons name="share-outline" size={20} color={theme.text} />
+                                                <Ionicons name="share-outline" size={18} color={theme.text} />
                                             </TouchableOpacity>
                                         </View>
                                     </View>
                                 </View>
 
                                 {/* Aggregates */}
-                                <View style={[styles.statsRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                    <View style={[styles.statColumn, { flex: 0.8 }]}>
-                                        <Text style={[styles.statLabel, { color: theme.mutedText }]}>Items</Text>
-                                        <Text style={[styles.statValue, { color: theme.text, fontSize: 14 }]}>{validItems.length}</Text>
-                                    </View>
-                                    <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-                                    <View style={[styles.statColumn, { flex: 1.2 }]}>
-                                        <Text style={[styles.statLabel, { color: theme.mutedText }]}>List Value</Text>
+                                <View style={styles.statsRow}>
+                                    <View style={styles.statColumn}>
+                                        <Text style={[styles.statLabel, { color: theme.mutedText }]}>Total Listing Value</Text>
                                         <Text style={[styles.statValue, { color: theme.text }]}>{formatCurrency(totalListValue)}</Text>
                                     </View>
-                                    <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-                                    <View style={[styles.statColumn, { flex: 1.2 }]}>
-                                        <Text style={[styles.statLabel, { color: theme.mutedText }]}>Market Value</Text>
+                                    <View style={styles.statColumn}>
+                                        <Text style={[styles.statLabel, { color: theme.mutedText }]}>Total Market Value</Text>
                                         <Text style={[styles.statValue, { color: theme.text }]}>
                                             {totalMarketValue > 0 ? formatCurrency(totalMarketValue) : '--'}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.statColumn, { alignItems: 'flex-end', justifyContent: 'flex-end', paddingBottom: 2 }]}>
+                                        <Text style={[styles.statLabel, { color: theme.mutedText, fontSize: 13, textTransform: 'none', letterSpacing: 0, fontWeight: '600' }]}>
+                                            {validItems.length} listing{validItems.length !== 1 && 's'}
                                         </Text>
                                     </View>
                                 </View>
@@ -622,51 +621,89 @@ const styles = StyleSheet.create({
         paddingTop: 10,
     },
     profileHeader: {
-        paddingHorizontal: 20,
-        paddingBottom: 20,
+        marginHorizontal: 20,
+        marginBottom: 20,
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.04,
+                shadowRadius: 8,
+            },
+            android: {
+                elevation: 2,
+            },
+            web: {
+                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+            }
+        }),
     },
     profileRow: {
         flexDirection: 'row',
         alignItems: 'flex-start',
+        position: 'relative',
     },
     avatarPlaceholder: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+        width: 72,
+        height: 72,
+        borderRadius: 36,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
+        borderWidth: 3,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 6,
+            },
+            android: {
+                elevation: 4,
+            },
+            web: {
+                boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
+            }
+        }),
     },
     avatarText: {
-        fontSize: 24,
+        fontSize: 28,
         fontWeight: 'bold',
-        color: '#fff',
     },
     profileInfo: {
         flex: 1,
         justifyContent: 'center',
-        paddingRight: 12,
+        paddingRight: 32, 
+        marginTop: 2,
     },
     displayName: {
-        fontSize: 20,
-        fontWeight: 'bold',
+        fontSize: 22,
+        fontWeight: '800',
+        letterSpacing: -0.5,
+        marginBottom: 2,
     },
     handleDesc: {
         fontSize: 14,
-        marginTop: 2,
+        fontWeight: '600',
+        marginBottom: 8,
     },
     bio: {
         fontSize: 14,
         lineHeight: 20,
+        fontWeight: '400',
     },
     profileActions: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        position: 'absolute',
+        top: 0,
+        right: 0,
     },
     iconButton: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
@@ -708,12 +745,29 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         overflow: 'hidden',
         marginHorizontal: 4,
+        ...Platform.select({
+            ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.08,
+                shadowRadius: 12,
+            },
+            android: {
+                elevation: 3,
+            },
+            web: {
+                boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
+            }
+        }),
     },
     imagePlaceholder: {
         width: '100%',
-        aspectRatio: 0.72,
+        aspectRatio: 0.75,
         justifyContent: 'center',
         alignItems: 'center',
+        padding: 6,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0,0,0,0.05)',
     },
     itemDetails: {
         padding: 10,
@@ -745,30 +799,28 @@ const styles = StyleSheet.create({
     statsRow: {
         flexDirection: 'row',
         marginHorizontal: 20,
-        paddingVertical: 14,
-        paddingHorizontal: 10,
-        borderRadius: 12,
-        borderWidth: 1,
-        marginBottom: 10,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(0,0,0,0.05)',
+        marginBottom: 16,
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 16,
     },
     statColumn: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    statDivider: {
-        width: 1,
-        height: '80%',
-        alignSelf: 'center',
+        justifyContent: 'flex-start',
     },
     statLabel: {
         fontSize: 12,
-        fontWeight: '500',
-        marginBottom: 4,
+        fontWeight: '600',
+        marginBottom: 2,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     statValue: {
-        fontSize: 16,
-        fontWeight: 'bold',
+        fontSize: 18,
+        fontWeight: '800',
+        letterSpacing: -0.5,
     },
     emptyStateContainer: {
         alignItems: 'center',
