@@ -10,6 +10,9 @@ export type StorefrontRow = {
     display_name: string;
     bio: string | null;
     is_public: boolean;
+    avatar_url?: string | null;
+    banner_url?: string | null;
+    theme_preset?: string | null;
     item_id: string | null;
     catalog_product_id: string | null;
     title: string | null;
@@ -61,6 +64,9 @@ export type StorefrontData = {
     handle: string;
     display_name: string;
     bio: string | null;
+    avatar_url?: string | null;
+    banner_url?: string | null;
+    theme_preset?: string | null;
     items: StorefrontItem[];
 };
 
@@ -111,6 +117,9 @@ function normalizeRows(rows: StorefrontRow[]): StorefrontData | null {
         handle: first.handle,
         display_name: first.display_name,
         bio: first.bio,
+        avatar_url: first.avatar_url,
+        banner_url: first.banner_url,
+        theme_preset: first.theme_preset,
         items,
     };
 

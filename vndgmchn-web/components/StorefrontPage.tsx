@@ -75,6 +75,9 @@ export default function StorefrontPage({ storefront }: Props) {
         displayName={storefront.display_name}
         handle={storefront.handle}
         bio={storefront.bio}
+        avatarUrl={storefront.avatar_url}
+        bannerUrl={storefront.banner_url}
+        themePreset={storefront.theme_preset}
       />
 
       <section
