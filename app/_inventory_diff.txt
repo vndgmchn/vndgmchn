@@ -1,0 +1,189 @@
+﻿diff --git a/app/(tabs)/inventory.tsx b/app/(tabs)/inventory.tsx
+index 74c0bd0..17975a1 100644
+--- a/app/(tabs)/inventory.tsx
++++ b/app/(tabs)/inventory.tsx
+@@ -59,7 +59,12 @@ export default function InventoryScreen() {
+     const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
+     const didAutoRefreshRef = useRef(false);
+ 
+-    const [filter, setFilter] = useState<'FOR_SALE' | 'PENDING' | 'PERSONAL' | 'SOLD' | 'ALL'>('FOR_SALE');
++    // Collections Phase 2A State
++    const [collections, setCollections] = useState<any[]>([]);
++    const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
++    const [collectionModalVisible, setCollectionModalVisible] = useState(false);
++
++    const [filter, setFilter] = useState<'ACTIVE' | 'SOLD'>('ACTIVE');
+     const [viewMode, setViewMode] = useState<'list' | 'grid' | 'binder'>('list');
+ 
+     // Restore persisted view mode and sort mode on mount
+@@ -136,10 +141,18 @@ export default function InventoryScreen() {
+                 setUserId(user.id);
+                 didAutoRefreshRef.current = false;
+                 fetchInventory(user.id);
++                fetchCollections();
+             }
+         });
+     }, []);
+ 
++    const fetchCollections = async () => {
++        const { data, error } = await supabase.rpc('get_my_collections');
++        if (!error && data) {
++            setCollections(data);
++        }
++    };
++
+     // Intercept returning router payload from Universal Search
+     useEffect(() => {
+         if (selectedCatalogProduct) {
+@@ -793,7 +806,7 @@ export default function InventoryScreen() {
+                             {item.quantity > 1 && (
+                                 <Text style={{ fontSize: 11, color: theme.mutedText, fontWeight: 'bold', marginRight: 4 }}>├ù{item.quantity}</Text>
+                             )}
+-                            {filter === 'ALL' && (
++                            {item.status !== 'FOR_SALE' && (
+                                 <View style={[styles.badge, { backgroundColor: item.status === 'SOLD' ? '#d1e7dd' : theme.border, margin: 0, paddingHorizontal: 4, paddingVertical: 1 }]}>
+                                     <Text style={[styles.badgeText, { color: item.status === 'SOLD' ? '#0f5132' : theme.text, fontSize: 9 }]}>{item.status}</Text>
+                                 </View>
+@@ -1113,8 +1126,10 @@ export default function InventoryScreen() {
+ 
+     const sortedItems = useMemo(() => {
+         let filtered = items;
+-        if (filter !== 'ALL') {
+-            filtered = filtered.filter(i => i.status === filter);
++        if (filter === 'ACTIVE') {
++            filtered = filtered.filter(i => i.status !== 'SOLD');
++        } else if (filter === 'SOLD') {
++            filtered = filtered.filter(i => i.status === 'SOLD');
+         }
+ 
+         if (searchQuery.trim()) {
+@@ -1203,11 +1218,22 @@ export default function InventoryScreen() {
+     return (
+         <View style={[styles.container, { backgroundColor: theme.background }]}>
+             <View style={styles.header}>
+-                <View>
++                <TouchableOpacity 
++                    style={{ flexDirection: 'row', alignItems: 'center' }}
++                    onPress={() => !isSelectMode && setCollectionModalVisible(true)}
++                    disabled={isSelectMode}
++                >
+                     <Text style={[styles.title, { color: theme.text }]}>
+-                        {isSelectMode ? `${selectedItemIds.length} Selected` : 'Inventory'}
++                        {isSelectMode 
++                            ? `${selectedItemIds.length} Selected` 
++                            : (selectedCollectionId && collections.find(c => c.id === selectedCollectionId)
++                                ? collections.find(c => c.id === selectedCollectionId)!.name 
++                                : 'All Inventory')}
+                     </Text>
+-                </View>
++                    {!isSelectMode && (
++                        <Ionicons name="chevron-down" size={20} color={theme.text} style={{ marginLeft: 6, marginTop: 2 }} />
++                    )}
++                </TouchableOpacity>
+                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                     {isSelectMode && (
+                         <TouchableOpacity
+@@ -1253,10 +1279,10 @@ export default function InventoryScreen() {
+ 
+             <View style={styles.filterContainer}>
+                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+-                    {(['ALL', 'FOR_SALE', 'PENDING', 'SOLD', 'PERSONAL'] as const).map(f => (
++                    {(['ACTIVE', 'SOLD'] as const).map(f => (
+                         <FilterPill
+                             key={f}
+-                            label={f.replace('_', ' ')}
++                            label={f === 'ACTIVE' ? 'Active' : 'Sold'}
+                             active={filter === f}
+                             onPress={() => setFilter(f)}
+                         />
+@@ -1299,7 +1325,7 @@ export default function InventoryScreen() {
+             </View>
+ 
+             <View style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
+-                {(filter === 'FOR_SALE' || filter === 'PENDING') && (
++                {filter === 'ACTIVE' && (
+                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                         <View style={{ flex: 1, alignItems: 'center' }}>
+                             <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>LIST VALUE</Text>
+@@ -1311,12 +1337,6 @@ export default function InventoryScreen() {
+                         </View>
+                     </View>
+                 )}
+-                {filter === 'PERSONAL' && (
+-                    <View style={{ alignItems: 'center' }}>
+-                        <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>MARKET VALUE</Text>
+-                        <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.marketValue)}</Text>
+-                    </View>
+-                )}
+                 {filter === 'SOLD' && (
+                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                         <View style={{ flex: 1, alignItems: 'center' }}>
+@@ -1360,7 +1380,7 @@ export default function InventoryScreen() {
+                 ) : (
+                     <EmptyState
+                         icon="folder-open-outline"
+-                        title={filter === 'ALL' ? 'No Items' : `No ${filter.replace('_', ' ')} Items`}
++                        title={filter === 'ACTIVE' ? 'No Active Items' : 'No Sold Items'}
+                         message="You don't have any items in this status tab yet."
+                         style={{ marginTop: 60 }}
+                     />
+@@ -1485,6 +1505,59 @@ export default function InventoryScreen() {
+                 </ScrollView>
+             </ModalShell>
+ 
++            <ModalShell
++                visible={collectionModalVisible}
++                onClose={() => setCollectionModalVisible(false)}
++                title="Select Context"
++                type="bottom-sheet"
++            >
++                <ScrollView style={styles.sheetBody}>
++                    <TouchableOpacity
++                        style={styles.sortOptionRow}
++                        onPress={() => {
++                            setSelectedCollectionId(null);
++                            setCollectionModalVisible(false);
++                        }}
++                    >
++                        <Text style={[
++                            styles.sortOptionText,
++                            { color: selectedCollectionId === null ? theme.primary : theme.text, fontWeight: selectedCollectionId === null ? '700' : '400' }
++                        ]}>
++                            All Inventory
++                        </Text>
++                        {selectedCollectionId === null && (
++                            <Ionicons name="checkmark" size={20} color={theme.primary} />
++                        )}
++                    </TouchableOpacity>
++
++                    {collections.length > 0 && (
++                        <Text style={[styles.sectionHeading, { color: theme.mutedText, marginTop: 16 }]}>MY COLLECTIONS</Text>
++                    )}
++
++                    {collections.map(c => (
++                        <TouchableOpacity
++                            key={c.id}
++                            style={styles.sortOptionRow}
++                            onPress={() => {
++                                setSelectedCollectionId(c.id);
++                                setCollectionModalVisible(false);
++                            }}
++                        >
++                            <Text style={[
++                                styles.sortOptionText,
++                                { color: selectedCollectionId === c.id ? theme.primary : theme.text, fontWeight: selectedCollectionId === c.id ? '700' : '400' }
++                            ]}>
++                                {c.name}
++                            </Text>
++                            {selectedCollectionId === c.id && (
++                                <Ionicons name="checkmark" size={20} color={theme.primary} />
++                            )}
++                        </TouchableOpacity>
++                    ))}
++                    <View style={{ height: 40 }} />
++                </ScrollView>
++            </ModalShell>
++
+             <ModalShell
+                 visible={modalVisible}
+                 onClose={() => {

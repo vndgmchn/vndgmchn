@@ -59,7 +59,29 @@ export default function InventoryScreen() {
     const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
     const didAutoRefreshRef = useRef(false);
 
-    const [filter, setFilter] = useState<'FOR_SALE' | 'PENDING' | 'PERSONAL' | 'SOLD' | 'ALL'>('FOR_SALE');
+    // Collections Phase 2A State
+    const [collections, setCollections] = useState<any[]>([]);
+    const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+    const [collectionModalVisible, setCollectionModalVisible] = useState(false);
+    
+    // Collections Phase 2B State
+    const [itemCollectionsMap, setItemCollectionsMap] = useState<Map<string, Set<string>>>(new Map());
+
+    // Collections Phase 3A State
+    const [collectionFormVisible, setCollectionFormVisible] = useState(false);
+    const [editingCollection, setEditingCollection] = useState<any | null>(null);
+    const [collectionName, setCollectionName] = useState('');
+    const [collectionDescription, setCollectionDescription] = useState('');
+    const [collectionVisibility, setCollectionVisibility] = useState<'private' | 'unlisted' | 'public'>('private');
+    const [savingCollection, setSavingCollection] = useState(false);
+
+    // Collections Phase 3B State
+    const [addToCollectionModalVisible, setAddToCollectionModalVisible] = useState(false);
+    const [itemToAddToCollection, setItemToAddToCollection] = useState<InventoryItem | null>(null);
+    const [selectedCollectionIdsForAdd, setSelectedCollectionIdsForAdd] = useState<string[]>([]);
+    const [addingToCollections, setAddingToCollections] = useState(false);
+
+    const [filter, setFilter] = useState<'ACTIVE' | 'SOLD'>('ACTIVE');
     const [viewMode, setViewMode] = useState<'list' | 'grid' | 'binder'>('list');
 
     // Restore persisted view mode and sort mode on mount
@@ -102,6 +124,7 @@ export default function InventoryScreen() {
     const [sellingItem, setSellingItem] = useState<InventoryItem | null>(null);
     const [quickSoldPrice, setQuickSoldPrice] = useState('');
     const [quickCostBasis, setQuickCostBasis] = useState('');
+    const [quickSellQuantity, setQuickSellQuantity] = useState('1');
 
     // New constraints from Scrydex payload map
     const [catalogProductId, setCatalogProductId] = useState<string | null>(null);
@@ -136,9 +159,34 @@ export default function InventoryScreen() {
                 setUserId(user.id);
                 didAutoRefreshRef.current = false;
                 fetchInventory(user.id);
+                fetchCollections();
             }
         });
     }, []);
+
+    const fetchCollections = async () => {
+        const { data, error } = await supabase.rpc('get_my_collections');
+        if (!error && data) {
+            setCollections(data);
+            AsyncStorage.getItem('inventory_selected_collection_id').then(saved => {
+                if (saved && data.some((c: any) => c.id === saved)) {
+                    setSelectedCollectionId(saved);
+                }
+            });
+        }
+        
+        const { data: mappingData, error: mappingError } = await supabase.rpc('get_my_inventory_collection_ids');
+        if (!mappingError && mappingData) {
+            const newMap = new Map<string, Set<string>>();
+            mappingData.forEach((row: any) => {
+                if (!newMap.has(row.inventory_item_id)) {
+                    newMap.set(row.inventory_item_id, new Set());
+                }
+                newMap.get(row.inventory_item_id)!.add(row.collection_id);
+            });
+            setItemCollectionsMap(newMap);
+        }
+    };
 
     // Intercept returning router payload from Universal Search
     useEffect(() => {
@@ -307,11 +355,28 @@ export default function InventoryScreen() {
 
             if (error) Alert.alert('Error', error.message);
         } else {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('inventory_items')
-                .insert([itemData]);
+                .insert([itemData])
+                .select()
+                .single();
 
-            if (error) Alert.alert('Error', error.message);
+            if (error) {
+                Alert.alert('Error', error.message);
+            } else if (data && selectedCollectionId) {
+                const { error: collError } = await supabase
+                    .from('collection_items')
+                    .insert([{
+                        collection_id: selectedCollectionId,
+                        inventory_item_id: data.id
+                    }]);
+
+                if (collError) {
+                    console.error("Failed to add new item to current collection:", collError.message);
+                } else {
+                    fetchCollections(); // Refresh membership map
+                }
+            }
         }
 
         setSaving(false);
@@ -377,6 +442,13 @@ export default function InventoryScreen() {
 
     const handleQuickSellSave = async () => {
         if (!userId || !sellingItem) return;
+        
+        const sellQty = parseInt(quickSellQuantity, 10);
+        if (isNaN(sellQty) || sellQty < 1 || sellQty > sellingItem.quantity) {
+            Alert.alert("Validation Error", `Quantity must be between 1 and ${sellingItem.quantity}.`);
+            return;
+        }
+
         setLoading(true);
 
         const updates = {
@@ -386,21 +458,250 @@ export default function InventoryScreen() {
             sold_at: new Date().toISOString()
         };
 
-        const { error } = await supabase
-            .from('inventory_items')
-            .update(updates)
-            .eq('id', sellingItem.id)
-            .eq('owner_id', userId);
+        if (sellQty < sellingItem.quantity) {
+            // A. PARTIAL SELL (Stack Split)
+            const { id, created_at, updated_at, deleted_at, catalog_products, ...safeItemFields } = sellingItem as any;
+            
+            const newItemData = {
+                ...safeItemFields,
+                status: updates.status,
+                quantity: sellQty,
+                sold_price: updates.sold_price,
+                cost_basis: updates.cost_basis,
+                sold_at: updates.sold_at,
+            };
+            
+            const { data: newSoldItem, error: insertError } = await supabase.from('inventory_items').insert([newItemData]).select().single();
+            if (insertError || !newSoldItem) { 
+                Alert.alert("Error", "Failed to create sold item record."); 
+                setLoading(false); 
+                return; 
+            }
+            
+            const { error: updateError } = await supabase.from('inventory_items').update({ quantity: sellingItem.quantity - sellQty }).eq('id', sellingItem.id).eq('owner_id', userId);
+            if (updateError) { 
+                Alert.alert("Error", "Failed to decrement remaining quantity."); 
+                setLoading(false); 
+                return; 
+            }
+            
+            if (selectedCollectionId) {
+                const { error: collError } = await supabase.from('collection_items').insert([{ collection_id: selectedCollectionId, inventory_item_id: newSoldItem.id }]);
+                if (collError) { 
+                    Alert.alert("Error", "Failed to bind sold item to the current collection."); 
+                    setLoading(false); 
+                    return; 
+                }
+            }
+        } else {
+            // B. FULL SELL
+            const { error: updateError } = await supabase.from('inventory_items').update(updates).eq('id', sellingItem.id).eq('owner_id', userId);
+            if (updateError) { 
+                Alert.alert("Error", "Failed to mark item as sold."); 
+                setLoading(false); 
+                return; 
+            }
+            
+            const { error: wipeError } = await supabase.from('collection_items').delete().eq('inventory_item_id', sellingItem.id);
+            if (wipeError) { 
+                Alert.alert("Error", "Failed to wipe active collections context."); 
+                setLoading(false); 
+                return; 
+            }
+            
+            if (selectedCollectionId) {
+                const { error: collError } = await supabase.from('collection_items').insert([{ collection_id: selectedCollectionId, inventory_item_id: sellingItem.id }]);
+                if (collError) { 
+                    Alert.alert("Error", "Failed to map full sold item to current collection."); 
+                    setLoading(false); 
+                    return; 
+                }
+            }
+        }
 
         setSoldModalVisible(false);
         setSellingItem(null);
 
+        fetchCollections();
+        fetchInventory(userId);
+    };
+
+    // --- COLLECTION CRUD ---
+    const handleSaveCollection = async () => {
+        if (!collectionName.trim()) {
+            Alert.alert('Validation Error', 'Collection name is required.');
+            return;
+        }
+
+        setSavingCollection(true);
+
+        const slug = collectionName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+        const collectionData = {
+            owner_id: userId,
+            name: collectionName.trim(),
+            description: collectionDescription.trim() || null,
+            visibility: collectionVisibility,
+            slug: slug || 'collection',
+        };
+
+        if (editingCollection) {
+            const { error } = await supabase
+                .from('collections')
+                .update(collectionData)
+                .eq('id', editingCollection.id);
+
+            if (error) Alert.alert('Error', error.message);
+        } else {
+            const { data, error } = await supabase
+                .from('collections')
+                .insert([collectionData])
+                .select()
+                .single();
+
+            if (error) {
+                Alert.alert('Error', error.message);
+            } else if (data) {
+                setSelectedCollectionId(data.id);
+                AsyncStorage.setItem('inventory_selected_collection_id', data.id);
+            }
+        }
+
+        setSavingCollection(false);
+        setCollectionFormVisible(false);
+        fetchCollections();
+    };
+
+    const promptDeleteCollection = async (collection: any) => {
+        setLoading(true);
+        const { data, error } = await supabase.rpc('get_collection_delete_summary', { p_collection_id: collection.id });
+        setLoading(false);
+
         if (error) {
-            Alert.alert("Error", "Failed to mark as sold.");
+            Alert.alert("Error", "Could not load collection details.");
+            return;
+        }
+
+        const countData = Array.isArray(data) ? data[0] : (data || {});
+        const totalItems = countData.total_items ?? 0;
+        const exclusiveCount = countData.exclusive_items ?? 0;
+        const sharedCount = Math.max(totalItems - exclusiveCount, 0);
+        
+        let message = `Are you sure you want to delete "${collection.name}"?`;
+        
+        if (totalItems > 0) {
+            message = `This collection contains ${totalItems} total items.\n\n` + 
+                      `${exclusiveCount} items exist ONLY in this collection. ` +
+                      `${sharedCount} items are shared with other collections.`;
+        }
+
+        const options = [
+            { text: "Cancel", style: "cancel" as const },
+            {
+                text: "Delete Collection Only",
+                style: "default" as const,
+                onPress: () => performDeleteCollection(collection.id, false)
+            },
+            {
+                text: "Delete Collection and Remove Items",
+                style: "destructive" as const,
+                onPress: () => performDeleteCollection(collection.id, true)
+            }
+        ];
+
+        Alert.alert("Delete Collection", message, options);
+    };
+
+    const performDeleteCollection = async (collectionId: string, deleteItems: boolean) => {
+        setLoading(true);
+        
+        if (deleteItems) {
+            // Find exclusive items client-side using our pre-loaded map map
+            const exclusiveItemIds: string[] = [];
+            itemCollectionsMap.forEach((collectionsSet, itemId) => {
+                if (collectionsSet.has(collectionId) && collectionsSet.size === 1) {
+                    exclusiveItemIds.push(itemId);
+                }
+            });
+
+            if (exclusiveItemIds.length > 0) {
+                // Soft delete the exclusive items
+                await supabase.from('inventory_items')
+                    .update({ deleted_at: new Date().toISOString() })
+                    .in('id', exclusiveItemIds);
+            }
+        }
+        
+        // Delete the collection (cascade should handle collection_items)
+        const { error } = await supabase.from('collections').delete().eq('id', collectionId);
+
+        if (error) {
+            Alert.alert("Error", "Failed to delete collection.");
             setLoading(false);
         } else {
-            fetchInventory(userId);
+            setCollectionFormVisible(false);
+            if (selectedCollectionId === collectionId) {
+                setSelectedCollectionId(null);
+                AsyncStorage.removeItem('inventory_selected_collection_id');
+            }
+            fetchCollections();
+            if (userId && deleteItems) fetchInventory(userId); // refresh UI for deleted items
+            else setLoading(false);
         }
+    };
+
+    const openAddToCollectionModal = (item: InventoryItem) => {
+        setItemToAddToCollection(item);
+        const existingIds = Array.from(itemCollectionsMap.get(item.id) || []);
+        setSelectedCollectionIdsForAdd(existingIds);
+        setAddToCollectionModalVisible(true);
+    };
+
+    const handleSaveItemToCollections = async () => {
+        if (!itemToAddToCollection) return;
+        setAddingToCollections(true);
+
+        const itemId = itemToAddToCollection.id;
+        const previousIds = Array.from(itemCollectionsMap.get(itemId) || []);
+        const newIds = selectedCollectionIdsForAdd;
+
+        const toAdd = newIds.filter(id => !previousIds.includes(id));
+        const toRemove = previousIds.filter(id => !newIds.includes(id));
+
+        if (toAdd.length > 0) {
+            const inserts = toAdd.map(collectionId => ({
+                collection_id: collectionId,
+                inventory_item_id: itemId,
+            }));
+            await supabase.from('collection_items').insert(inserts);
+        }
+
+        if (toRemove.length > 0) {
+            await supabase.from('collection_items')
+                .delete()
+                .eq('inventory_item_id', itemId)
+                .in('collection_id', toRemove);
+        }
+
+        setAddingToCollections(false);
+        setAddToCollectionModalVisible(false);
+        setItemToAddToCollection(null);
+        fetchCollections(); // reloads map
+    };
+
+    const performRemoveFromCollection = async (item: InventoryItem) => {
+        if (!selectedCollectionId) return;
+        setLoading(true);
+        const { error } = await supabase.from('collection_items')
+            .delete()
+            .eq('inventory_item_id', item.id)
+            .eq('collection_id', selectedCollectionId);
+            
+        if (error) {
+            Alert.alert("Error", "Failed to remove item from collection.");
+        }
+        fetchCollections(); // reloads map
+        setLoading(false);
     };
 
     const openActionMenu = (item: InventoryItem) => {
@@ -413,9 +714,11 @@ export default function InventoryScreen() {
         };
 
         const statusOptions = availableStatuses.map(s => formatStatus(s));
+        
+        const contextualRemoveOption = selectedCollectionId ? ['Remove from Collection'] : [];
 
         if (Platform.OS === 'ios') {
-            const options = ['Cancel', 'Edit', 'Open in TCGplayer', ...statusOptions, 'Delete'];
+            const options = ['Cancel', 'Edit', 'Open in TCGplayer', 'Add to Collection', ...contextualRemoveOption, ...statusOptions, 'Delete'];
             ActionSheetIOS.showActionSheetWithOptions(
                 {
                     options,
@@ -423,45 +726,63 @@ export default function InventoryScreen() {
                     cancelButtonIndex: 0,
                 },
                 (buttonIndex) => {
-                    if (buttonIndex === 1) {
+                    if (buttonIndex === 0) return;
+                    const selectedOption = options[buttonIndex];
+
+                    if (selectedOption === 'Edit') {
                         openEditModal(item);
-                    } else if (buttonIndex === 2) {
+                    } else if (selectedOption === 'Open in TCGplayer') {
                         handleOpenTcgPlayer(item);
-                    } else if (buttonIndex > 2 && buttonIndex < options.length - 1) {
-                        const selectedStatus = availableStatuses[buttonIndex - 3];
-                        if (selectedStatus === 'SOLD') {
-                            setSellingItem(item);
-                            setQuickSoldPrice(item.listing_price ? item.listing_price.toString() : '');
-                            setQuickCostBasis(item.cost_basis ? item.cost_basis.toString() : '');
-                            setSoldModalVisible(true);
-                        } else {
-                            setItemStatus(item, selectedStatus);
-                        }
-                    } else if (buttonIndex === options.length - 1) {
+                    } else if (selectedOption === 'Add to Collection') {
+                        openAddToCollectionModal(item);
+                    } else if (selectedOption === 'Remove from Collection') {
+                        performRemoveFromCollection(item);
+                    } else if (selectedOption === 'Delete') {
                         confirmDelete(item);
+                    } else if (selectedOption.startsWith('Mark ')) {
+                        const matchedStatus = availableStatuses.find(s => formatStatus(s) === selectedOption);
+                        if (matchedStatus) {
+                            if (matchedStatus === 'SOLD') {
+                                setSellingItem(item);
+                                setQuickSoldPrice(item.listing_price ? item.listing_price.toString() : '');
+                                setQuickCostBasis(item.cost_basis ? item.cost_basis.toString() : '');
+                                setQuickSellQuantity('1');
+                                setSoldModalVisible(true);
+                            } else {
+                                setItemStatus(item, matchedStatus);
+                            }
+                        }
                     }
                 }
             );
         } else {
-            const alertOptions = [
+            const alertOptions: any[] = [
                 { text: "Cancel", style: "cancel" as const },
                 { text: "Edit", onPress: () => openEditModal(item) },
                 { text: "Open in TCGplayer", onPress: () => handleOpenTcgPlayer(item) },
-                ...availableStatuses.map(s => ({
-                    text: formatStatus(s),
-                    onPress: () => {
-                        if (s === 'SOLD') {
-                            setSellingItem(item);
-                            setQuickSoldPrice(item.listing_price ? item.listing_price.toString() : '');
-                            setQuickCostBasis(item.cost_basis ? item.cost_basis.toString() : '');
-                            setSoldModalVisible(true);
-                        } else {
-                            setItemStatus(item, s);
-                        }
-                    }
-                })),
-                { text: "Delete", style: "destructive" as const, onPress: () => confirmDelete(item) }
+                { text: "Add to Collection", onPress: () => openAddToCollectionModal(item) },
             ];
+
+            if (selectedCollectionId) {
+                alertOptions.push({ text: "Remove from Collection", onPress: () => performRemoveFromCollection(item) });
+            }
+
+            alertOptions.push(...availableStatuses.map(s => ({
+                text: formatStatus(s),
+                onPress: () => {
+                    if (s === 'SOLD') {
+                        setSellingItem(item);
+                        setQuickSoldPrice(item.listing_price ? item.listing_price.toString() : '');
+                        setQuickCostBasis(item.cost_basis ? item.cost_basis.toString() : '');
+                        setQuickSellQuantity('1');
+                        setSoldModalVisible(true);
+                    } else {
+                        setItemStatus(item, s);
+                    }
+                }
+            })));
+            
+            alertOptions.push({ text: "Delete", style: "destructive" as const, onPress: () => confirmDelete(item) });
 
             Alert.alert(
                 "Item Actions",
@@ -542,6 +863,15 @@ export default function InventoryScreen() {
 
     const performBulkStatus = async (newStatus: string) => {
         if (!userId || selectedItemIds.length === 0) return;
+
+        if (newStatus === 'SOLD') {
+            const hasStackedItems = items.some(item => selectedItemIds.includes(item.id) && item.quantity > 1);
+            if (hasStackedItems) {
+                Alert.alert("Cannot Bulk Sell", "One or more selected items have a quantity greater than 1.\n\nPlease sell stacked items individually to specify quantities.");
+                return;
+            }
+        }
+
         setLoading(true);
         const { error } = await supabase
             .from('inventory_items')
@@ -668,6 +998,19 @@ export default function InventoryScreen() {
         }
     };
 
+    const getMembershipLabel = (item: InventoryItem) => {
+        if (selectedCollectionId) return null;
+        const collectionIds = itemCollectionsMap.get(item.id);
+        if (!collectionIds || collectionIds.size === 0) return null;
+        
+        const names = Array.from(collectionIds)
+            .map(id => collections.find(c => c.id === id)?.name)
+            .filter(Boolean) as string[];
+            
+        if (names.length === 0) return null;
+        return names.length <= 2 ? `In: ${names.join(' • ')}` : `In: ${names[0]} +${names.length - 1}`;
+    };
+
     const renderItem = ({ item }: { item: InventoryItem }) => {
         const pricesPayload = item.catalog_products?.catalog_prices_current;
         const marketPrice = Array.isArray(pricesPayload) ? pricesPayload[0]?.market_price : pricesPayload?.market_price;
@@ -779,6 +1122,18 @@ export default function InventoryScreen() {
                             </Text>
                         )}
 
+                        {(() => {
+                            const label = getMembershipLabel(item);
+                            if (label) {
+                                return (
+                                    <Text style={{ color: theme.mutedText, fontSize: 10, marginTop: 2, fontStyle: 'italic' }} numberOfLines={1}>
+                                        {label}
+                                    </Text>
+                                );
+                            }
+                            return null;
+                        })()}
+
                         {/* 4. CHIPS ROW */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
                             {prod?.kind === 'SEALED' ? (
@@ -793,7 +1148,7 @@ export default function InventoryScreen() {
                             {item.quantity > 1 && (
                                 <Text style={{ fontSize: 11, color: theme.mutedText, fontWeight: 'bold', marginRight: 4 }}>×{item.quantity}</Text>
                             )}
-                            {filter === 'ALL' && (
+                            {item.status !== 'FOR_SALE' && (
                                 <View style={[styles.badge, { backgroundColor: item.status === 'SOLD' ? '#d1e7dd' : theme.border, margin: 0, paddingHorizontal: 4, paddingVertical: 1 }]}>
                                     <Text style={[styles.badgeText, { color: item.status === 'SOLD' ? '#0f5132' : theme.text, fontSize: 9 }]}>{item.status}</Text>
                                 </View>
@@ -839,9 +1194,11 @@ export default function InventoryScreen() {
                             </View>
 
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={{ fontSize: 9, color: theme.mutedText, marginRight: 4, fontWeight: 'bold' }}>YOU</Text>
-                                <Text style={{ color: theme.primary, fontSize: 14, fontWeight: 'bold' }}>
-                                    {formatUsd(item.listing_price)}
+                                <Text style={{ fontSize: 9, color: item.status === 'SOLD' ? '#10b981' : theme.mutedText, marginRight: 4, fontWeight: 'bold' }}>
+                                    {item.status === 'SOLD' ? 'SOLD' : 'YOU'} {item.quantity > 1 ? '(ea)' : ''}
+                                </Text>
+                                <Text style={{ color: item.status === 'SOLD' ? '#10b981' : theme.primary, fontSize: 14, fontWeight: 'bold' }}>
+                                    {formatUsd(item.status === 'SOLD' && item.sold_price !== null ? item.sold_price : item.listing_price)}
                                 </Text>
                             </View>
                         </View>
@@ -958,6 +1315,18 @@ export default function InventoryScreen() {
                         {metaLine || setNumber}
                     </Text>
 
+                    {(() => {
+                        const label = getMembershipLabel(item);
+                        if (label) {
+                            return (
+                                <Text style={{ color: theme.mutedText, fontSize: 9, marginBottom: 2, fontStyle: 'italic' }} numberOfLines={1}>
+                                    {label}
+                                </Text>
+                            );
+                        }
+                        return null;
+                    })()}
+
                     {/* Condition / Grade / Quantity Line */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
                         {prod?.kind === 'SEALED' ? (
@@ -974,6 +1343,11 @@ export default function InventoryScreen() {
                                 <Text style={{ fontSize: 8, color: theme.text, fontWeight: 'bold' }}>x{item.quantity}</Text>
                             </View>
                         )}
+                        {item.status !== 'FOR_SALE' && (
+                            <View style={{ backgroundColor: item.status === 'SOLD' ? '#d1e7dd' : theme.border, paddingHorizontal: 3, paddingVertical: 1, borderRadius: 4, marginRight: 4 }}>
+                                <Text style={{ fontSize: 8, color: item.status === 'SOLD' ? '#0f5132' : theme.text, fontWeight: 'bold' }}>{item.status}</Text>
+                            </View>
+                        )}
                     </View>
 
                     {/* Price Line (Stacked) */}
@@ -986,9 +1360,11 @@ export default function InventoryScreen() {
                         </View>
 
                         <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
-                            <Text style={{ fontSize: 9, color: theme.mutedText, fontWeight: 'bold', marginBottom: 1 }}>YOU</Text>
-                            <Text style={{ color: theme.primary, fontSize: 13, fontWeight: 'bold' }} numberOfLines={1} adjustsFontSizeToFit>
-                                {formatUsd(item.listing_price)}
+                            <Text style={{ fontSize: 9, color: item.status === 'SOLD' ? '#10b981' : theme.mutedText, fontWeight: 'bold', marginBottom: 1 }}>
+                                {item.status === 'SOLD' ? 'SOLD' : 'YOU'} {item.quantity > 1 ? '(ea)' : ''}
+                            </Text>
+                            <Text style={{ color: item.status === 'SOLD' ? '#10b981' : theme.primary, fontSize: 13, fontWeight: 'bold' }} numberOfLines={1} adjustsFontSizeToFit>
+                                {formatUsd(item.status === 'SOLD' && item.sold_price !== null ? item.sold_price : item.listing_price)}
                             </Text>
                         </View>
                     </View>
@@ -1095,16 +1471,38 @@ export default function InventoryScreen() {
                                 <Text style={{ fontSize: 6, color: '#fff', fontWeight: 'bold' }}>x{item.quantity}</Text>
                             </View>
                         )}
+                        {item.status !== 'FOR_SALE' && (
+                            <View style={{ backgroundColor: item.status === 'SOLD' ? '#d1e7dd' : 'rgba(255,255,255,0.2)', paddingHorizontal: 2, paddingVertical: 0, borderRadius: 2 }}>
+                                <Text style={{ fontSize: 6, color: item.status === 'SOLD' ? '#0f5132' : '#fff', fontWeight: 'bold' }}>{item.status}</Text>
+                            </View>
+                        )}
                     </View>
+
+                    {(() => {
+                        const label = getMembershipLabel(item);
+                        if (label) {
+                            return (
+                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 7, marginBottom: 2, fontStyle: 'italic' }} numberOfLines={1}>
+                                    {label}
+                                </Text>
+                            );
+                        }
+                        return null;
+                    })()}
 
                     {/* Stacked Pricing Block */}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 9 }} numberOfLines={1} adjustsFontSizeToFit>
                             {formatUsd(convertToUsd(marketPrice, currency))}
                         </Text>
-                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }} numberOfLines={1} adjustsFontSizeToFit>
-                            {formatUsd(item.listing_price)}
-                        </Text>
+                        <View style={{ alignItems: 'flex-end' }}>
+                            <Text style={{ color: item.status === 'SOLD' ? '#10b981' : 'rgba(255,255,255,0.5)', fontSize: 7, fontWeight: 'bold', marginBottom: 1 }} numberOfLines={1}>
+                                {item.status === 'SOLD' ? 'SOLD' : 'YOU'} {item.quantity > 1 ? '(ea)' : ''}
+                            </Text>
+                            <Text style={{ color: item.status === 'SOLD' ? '#10b981' : '#fff', fontSize: 10, fontWeight: 'bold' }} numberOfLines={1} adjustsFontSizeToFit>
+                                {formatUsd(item.status === 'SOLD' && item.sold_price !== null ? item.sold_price : item.listing_price)}
+                            </Text>
+                        </View>
                     </View>
                 </View>
             </TouchableOpacity>
@@ -1113,8 +1511,14 @@ export default function InventoryScreen() {
 
     const sortedItems = useMemo(() => {
         let filtered = items;
-        if (filter !== 'ALL') {
-            filtered = filtered.filter(i => i.status === filter);
+        if (filter === 'ACTIVE') {
+            filtered = filtered.filter(i => i.status !== 'SOLD');
+        } else if (filter === 'SOLD') {
+            filtered = filtered.filter(i => i.status === 'SOLD');
+        }
+
+        if (selectedCollectionId) {
+            filtered = filtered.filter(i => itemCollectionsMap.get(i.id)?.has(selectedCollectionId));
         }
 
         if (searchQuery.trim()) {
@@ -1163,7 +1567,7 @@ export default function InventoryScreen() {
             }
             return 0; // RECENT (default based on fetchInventory sort)
         });
-    }, [items, filter, sortBy, searchQuery, activeFilters]);
+    }, [items, filter, sortBy, searchQuery, activeFilters, selectedCollectionId, itemCollectionsMap]);
 
     const summaryStats = useMemo(() => {
         let listedValue = 0;
@@ -1203,7 +1607,7 @@ export default function InventoryScreen() {
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             <View style={styles.header}>
-                <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text style={[styles.title, { color: theme.text }]}>
                         {isSelectMode ? `${selectedItemIds.length} Selected` : 'Inventory'}
                     </Text>
@@ -1251,12 +1655,30 @@ export default function InventoryScreen() {
                 </View>
             </View>
 
+            {/* Nav Row for Collection Chooser */}
+            {!isSelectMode && (
+                <TouchableOpacity 
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: theme.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }}
+                    onPress={() => setCollectionModalVisible(true)}
+                >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Ionicons name={selectedCollectionId ? "folder" : "layers"} size={20} color={theme.primary} style={{ marginRight: 10 }} />
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: theme.text }}>
+                            {selectedCollectionId && collections.find(c => c.id === selectedCollectionId)
+                                ? collections.find(c => c.id === selectedCollectionId)!.name 
+                                : 'All Inventory'}
+                        </Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={20} color={theme.mutedText} />
+                </TouchableOpacity>
+            )}
+
             <View style={styles.filterContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-                    {(['ALL', 'FOR_SALE', 'PENDING', 'SOLD', 'PERSONAL'] as const).map(f => (
+                    {(['ACTIVE', 'SOLD'] as const).map(f => (
                         <FilterPill
                             key={f}
-                            label={f.replace('_', ' ')}
+                            label={f === 'ACTIVE' ? 'Active' : 'Sold'}
                             active={filter === f}
                             onPress={() => setFilter(f)}
                         />
@@ -1298,40 +1720,36 @@ export default function InventoryScreen() {
                 </TouchableOpacity>
             </View>
 
-            <View style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
-                {(filter === 'FOR_SALE' || filter === 'PENDING') && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={{ flex: 1, alignItems: 'center' }}>
-                            <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>LIST VALUE</Text>
-                            <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.listedValue)}</Text>
+            {!selectedCollectionId && (
+                <View style={{ paddingHorizontal: 16, paddingVertical: 6 }}>
+                    {filter === 'ACTIVE' && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ flex: 1, alignItems: 'center' }}>
+                                <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>LIST VALUE</Text>
+                                <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.listedValue)}</Text>
+                            </View>
+                            <View style={{ flex: 1, alignItems: 'center' }}>
+                                <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>MARKET VALUE</Text>
+                                <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.marketValue)}</Text>
+                            </View>
                         </View>
-                        <View style={{ flex: 1, alignItems: 'center' }}>
-                            <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>MARKET VALUE</Text>
-                            <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.marketValue)}</Text>
+                    )}
+                    {filter === 'SOLD' && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ flex: 1, alignItems: 'center' }}>
+                                <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>SOLD VALUE</Text>
+                                <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.soldValue)}</Text>
+                            </View>
+                            <View style={{ flex: 1, alignItems: 'center' }}>
+                                <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>PROFIT</Text>
+                                <Text style={{ fontSize: 13, fontWeight: '600', marginTop: 1, color: summaryStats.profitValue < 0 ? '#ef4444' : (summaryStats.profitValue > 0 ? '#10b981' : theme.text) }}>
+                                    {summaryStats.profitValue < 0 ? '-' : ''}{formatUsd(Math.abs(summaryStats.profitValue))}
+                                </Text>
+                            </View>
                         </View>
-                    </View>
-                )}
-                {filter === 'PERSONAL' && (
-                    <View style={{ alignItems: 'center' }}>
-                        <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>MARKET VALUE</Text>
-                        <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.marketValue)}</Text>
-                    </View>
-                )}
-                {filter === 'SOLD' && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <View style={{ flex: 1, alignItems: 'center' }}>
-                            <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>SOLD VALUE</Text>
-                            <Text style={{ fontSize: 13, color: theme.text, fontWeight: '600', marginTop: 1 }}>{formatUsd(summaryStats.soldValue)}</Text>
-                        </View>
-                        <View style={{ flex: 1, alignItems: 'center' }}>
-                            <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>PROFIT</Text>
-                            <Text style={{ fontSize: 13, fontWeight: '600', marginTop: 1, color: summaryStats.profitValue < 0 ? '#ef4444' : (summaryStats.profitValue > 0 ? '#10b981' : theme.text) }}>
-                                {summaryStats.profitValue < 0 ? '-' : ''}{formatUsd(Math.abs(summaryStats.profitValue))}
-                            </Text>
-                        </View>
-                    </View>
-                )}
-            </View>
+                    )}
+                </View>
+            )}
 
             {loading ? (
                 <ActivityIndicator style={styles.mt20} />
@@ -1360,8 +1778,10 @@ export default function InventoryScreen() {
                 ) : (
                     <EmptyState
                         icon="folder-open-outline"
-                        title={filter === 'ALL' ? 'No Items' : `No ${filter.replace('_', ' ')} Items`}
-                        message="You don't have any items in this status tab yet."
+                        title={selectedCollectionId ? (filter === 'SOLD' ? "No Sold Items" : "Collection is Empty") : (filter === 'ACTIVE' ? 'No Active Items' : 'No Sold Items')}
+                        message={selectedCollectionId ? (filter === 'SOLD' ? "You haven't sold any items from this collection yet." : "You haven't added any items to this collection yet.") : "You don't have any items in this status tab yet."}
+                        actionLabel={selectedCollectionId ? "Add to Collection" : undefined}
+                        onAction={selectedCollectionId ? handleAddItemPress : undefined}
                         style={{ marginTop: 60 }}
                     />
                 )
@@ -1486,6 +1906,222 @@ export default function InventoryScreen() {
             </ModalShell>
 
             <ModalShell
+                visible={collectionModalVisible}
+                onClose={() => setCollectionModalVisible(false)}
+                title="Select Context"
+                type="bottom-sheet"
+            >
+                <ScrollView style={styles.sheetBody}>
+                    <TouchableOpacity
+                        style={[styles.sortOptionRow, { paddingRight: 80 }]}
+                        onPress={() => {
+                            setSelectedCollectionId(null);
+                            AsyncStorage.removeItem('inventory_selected_collection_id');
+                            setCollectionModalVisible(false);
+                        }}
+                    >
+                        <Text style={[
+                            styles.sortOptionText,
+                            { color: selectedCollectionId === null ? theme.primary : theme.text, fontWeight: selectedCollectionId === null ? '700' : '400', flex: 1 }
+                        ]}>
+                            All Inventory
+                        </Text>
+                        {selectedCollectionId === null && (
+                            <Ionicons name="checkmark" size={20} color={theme.primary} />
+                        )}
+                    </TouchableOpacity>
+
+                    {collections.length > 0 && (
+                        <Text style={[styles.sectionHeading, { color: theme.mutedText, marginTop: 16 }]}>MY COLLECTIONS</Text>
+                    )}
+
+                    {collections.map(c => (
+                        <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <TouchableOpacity
+                                style={[styles.sortOptionRow, { flex: 1, borderBottomWidth: 0, paddingRight: 8 }]}
+                                onPress={() => {
+                                    setSelectedCollectionId(c.id);
+                                    AsyncStorage.setItem('inventory_selected_collection_id', c.id);
+                                    setCollectionModalVisible(false);
+                                }}
+                            >
+                                <Text style={[
+                                    styles.sortOptionText,
+                                    { color: selectedCollectionId === c.id ? theme.primary : theme.text, fontWeight: selectedCollectionId === c.id ? '700' : '400' }
+                                ]}>
+                                    {c.name}
+                                </Text>
+                                {selectedCollectionId === c.id && (
+                                    <Ionicons name="checkmark" size={20} color={theme.primary} />
+                                )}
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={{ padding: 8, marginRight: 2 }}
+                                onPress={() => {
+                                    setEditingCollection(c);
+                                    setCollectionName(c.name);
+                                    setCollectionDescription(c.description || '');
+                                    setCollectionVisibility(c.visibility || 'private');
+                                    setCollectionModalVisible(false);
+                                    setCollectionFormVisible(true);
+                                }}
+                            >
+                                <Ionicons name="pencil" size={16} color={theme.mutedText} />
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={{ padding: 8, paddingLeft: 0, marginRight: 8 }}
+                                onPress={() => {
+                                    setCollectionModalVisible(false);
+                                    promptDeleteCollection(c);
+                                }}
+                            >
+                                <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+
+                    <View style={{ height: 16 }} />
+                    <TouchableOpacity
+                        style={[styles.sortOptionRow, { justifyContent: 'center', paddingVertical: 12, borderTopWidth: 1, borderTopColor: theme.border }]}
+                        onPress={() => {
+                            setEditingCollection(null);
+                            setCollectionName('');
+                            setCollectionDescription('');
+                            setCollectionVisibility('private');
+                            setCollectionModalVisible(false);
+                            setCollectionFormVisible(true);
+                        }}
+                    >
+                        <Ionicons name="add" size={20} color={theme.text} />
+                        <Text style={{ color: theme.text, marginLeft: 8, fontWeight: '600' }}>Create New Collection</Text>
+                    </TouchableOpacity>
+
+                    <View style={{ height: 40 }} />
+                </ScrollView>
+            </ModalShell>
+
+            <ModalShell
+                visible={collectionFormVisible}
+                onClose={() => setCollectionFormVisible(false)}
+                title={editingCollection ? 'Edit Collection' : 'Create Collection'}
+                type="page-sheet"
+                hideClose
+                headerRight={
+                    <TouchableOpacity onPress={() => setCollectionFormVisible(false)}>
+                        <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
+                    </TouchableOpacity>
+                }
+            >
+                <ScrollView style={styles.modalBody}>
+                    <Text style={[styles.label, { color: theme.text }]}>Name *</Text>
+                    <TextInput
+                        style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }]}
+                        value={collectionName}
+                        onChangeText={setCollectionName}
+                        placeholder="e.g. Base Set Master"
+                        placeholderTextColor={theme.mutedText}
+                    />
+
+                    <Text style={[styles.label, { color: theme.text, marginTop: 16 }]}>Description</Text>
+                    <TextInput
+                        style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text, height: 80, textAlignVertical: 'top' }]}
+                        value={collectionDescription}
+                        onChangeText={setCollectionDescription}
+                        placeholder="Optional details about this collection..."
+                        placeholderTextColor={theme.mutedText}
+                        multiline
+                    />
+
+                    <Text style={[styles.label, { color: theme.text, marginTop: 16 }]}>Visibility</Text>
+                    <View style={{ gap: 12 }}>
+                        {[
+                            { value: 'private', label: 'Private', desc: 'Only you can see this collection.' },
+                            { value: 'unlisted', label: 'Unlisted', desc: 'Anyone with the link can view it, but it won\'t appear on your storefront.' },
+                            { value: 'public', label: 'Public', desc: 'Appears on your storefront for everyone to browse.' }
+                        ].map(opt => (
+                            <TouchableOpacity
+                                key={opt.value}
+                                onPress={() => setCollectionVisibility(opt.value as any)}
+                                style={{ flexDirection: 'row', alignItems: 'flex-start', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: collectionVisibility === opt.value ? theme.primary : theme.border, backgroundColor: collectionVisibility === opt.value ? theme.primary + '10' : theme.surface }}
+                            >
+                                <Ionicons name={collectionVisibility === opt.value ? "radio-button-on" : "radio-button-off"} size={20} color={collectionVisibility === opt.value ? theme.primary : theme.mutedText} />
+                                <View style={{ marginLeft: 10, flex: 1 }}>
+                                    <Text style={{ color: theme.text, fontWeight: '600', fontSize: 15 }}>{opt.label}</Text>
+                                    <Text style={{ color: theme.mutedText, fontSize: 12, marginTop: 4 }}>{opt.desc}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    <TouchableOpacity
+                        style={[styles.saveButton, { backgroundColor: theme.primary, marginTop: 32 }]}
+                        onPress={handleSaveCollection}
+                        disabled={savingCollection}
+                    >
+                        {savingCollection ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Collection</Text>}
+                    </TouchableOpacity>
+
+                    {editingCollection && (
+                        <TouchableOpacity
+                            style={{ padding: 16, alignItems: 'center', marginTop: 16 }}
+                            onPress={() => promptDeleteCollection(editingCollection)}
+                        >
+                            <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>Delete Collection</Text>
+                        </TouchableOpacity>
+                    )}
+                    
+                    <View style={{ height: 60 }} />
+                </ScrollView>
+            </ModalShell>
+
+            <ModalShell
+                visible={addToCollectionModalVisible}
+                onClose={() => setAddToCollectionModalVisible(false)}
+                title="Add to Collection"
+                type="bottom-sheet"
+            >
+                <ScrollView style={styles.sheetBody}>
+                    <Text style={[styles.sectionHeading, { color: theme.mutedText, marginBottom: 8 }]}>SELECT COLLECTIONS</Text>
+                    
+                    {collections.length === 0 ? (
+                        <Text style={{ color: theme.mutedText, padding: 16, textAlign: 'center' }}>You don't have any collections yet.</Text>
+                    ) : (
+                        collections.map(c => {
+                            const isSelected = selectedCollectionIdsForAdd.includes(c.id);
+                            return (
+                                <TouchableOpacity
+                                    key={c.id}
+                                    style={styles.sortOptionRow}
+                                    onPress={() => {
+                                        setSelectedCollectionIdsForAdd(prev => 
+                                            prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id]
+                                        );
+                                    }}
+                                >
+                                    <Text style={[styles.sortOptionText, { color: isSelected ? theme.primary : theme.text, fontWeight: isSelected ? '700' : '400' }]}>
+                                        {c.name}
+                                    </Text>
+                                    {isSelected && (
+                                        <Ionicons name="checkmark" size={20} color={theme.primary} />
+                                    )}
+                                </TouchableOpacity>
+                            );
+                        })
+                    )}
+                    
+                    <TouchableOpacity
+                        style={[styles.saveButton, { backgroundColor: theme.primary, marginTop: 24, paddingVertical: 14 }]}
+                        onPress={handleSaveItemToCollections}
+                        disabled={addingToCollections || collections.length === 0}
+                    >
+                        {addingToCollections ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save</Text>}
+                    </TouchableOpacity>
+
+                    <View style={{ height: 40 }} />
+                </ScrollView>
+            </ModalShell>
+
+            <ModalShell
                 visible={modalVisible}
                 onClose={() => {
                     setModalVisible(false);
@@ -1504,6 +2140,20 @@ export default function InventoryScreen() {
                 }
             >
                 <ScrollView style={styles.modalBody}>
+                        {!editingItem && selectedCollectionId && (() => {
+                            const c = collections.find(x => x.id === selectedCollectionId);
+                            if (c) {
+                                return (
+                                    <View style={{ marginBottom: 16, backgroundColor: theme.primary + '15', padding: 12, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
+                                        <Ionicons name="folder" size={16} color={theme.primary} style={{ marginRight: 8 }} />
+                                        <Text style={{ color: theme.primary, fontWeight: '600', fontSize: 13, flex: 1 }}>
+                                            Adding directly to <Text style={{ fontWeight: '800' }}>{c.name}</Text>
+                                        </Text>
+                                    </View>
+                                );
+                            }
+                            return null;
+                        })()}
                         {imageUrl && (
                             <View style={{ alignItems: 'center', marginBottom: 12 }}>
                                 <Image source={{ uri: imageUrl }} style={{ width: 150, height: 210, borderRadius: 8 }} resizeMode="cover" />
@@ -1615,7 +2265,7 @@ export default function InventoryScreen() {
 
                         <View style={styles.row}>
                             <View style={styles.halfCol}>
-                                <Text style={[styles.label, { color: theme.text }]}>Quantity</Text>
+                                <Text style={[styles.label, { color: theme.text }]}>Quantity <Text style={{ fontWeight: 'normal', color: theme.mutedText }}>(This Row)</Text></Text>
                                 <TextInput
                                     style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }]}
                                     value={quantity}
@@ -1650,7 +2300,12 @@ export default function InventoryScreen() {
 
                         <Text style={[styles.label, { color: theme.text }]}>Status</Text>
                         <View style={styles.statusContainer}>
-                            {['FOR_SALE', 'PENDING', 'SOLD', 'PERSONAL'].map((s) => (
+                            {['FOR_SALE', 'PENDING', 'SOLD', 'PERSONAL'].filter(s => {
+                                // Lock transition paths to prevent bypassing Quick Sell logic and breaking Stack Identity rules
+                                if (s === 'SOLD' && editingItem?.status !== 'SOLD') return false; 
+                                if (s !== 'SOLD' && editingItem?.status === 'SOLD') return false;
+                                return true;
+                            }).map((s) => (
                                 <TouchableOpacity
                                     key={s}
                                     style={[
@@ -1677,15 +2332,7 @@ export default function InventoryScreen() {
                                             keyboardType="numeric"
                                         />
                                     </View>
-                                    <View style={styles.halfCol}>
-                                        <Text style={[styles.label, { color: theme.mutedText, fontSize: 12 }]}>Cost Basis ($)</Text>
-                                        <TextInput
-                                            style={[styles.input, { borderColor: theme.border, backgroundColor: theme.background, color: theme.text }]}
-                                            value={costBasis}
-                                            onChangeText={setCostBasis}
-                                            keyboardType="numeric"
-                                        />
-                                    </View>
+                                    <View style={styles.halfCol}></View>
                                 </View>
                             </View>
                         )}
@@ -1723,6 +2370,17 @@ export default function InventoryScreen() {
                 useKeyboardAvoiding
             >
                 <View style={styles.sheetBody}>
+                            {sellingItem && sellingItem.quantity > 1 && (
+                                <>
+                                    <Text style={[styles.label, { color: theme.text, marginBottom: 8 }]}>Sell Quantity (max {sellingItem.quantity})</Text>
+                                    <TextInput
+                                        style={[styles.input, { borderColor: theme.border, backgroundColor: theme.background, color: theme.text, marginBottom: 16 }]}
+                                        value={quickSellQuantity}
+                                        onChangeText={setQuickSellQuantity}
+                                        keyboardType="numeric"
+                                    />
+                                </>
+                            )}
                             <Text style={[styles.label, { color: theme.text, marginBottom: 8 }]}>Sold For ($)</Text>
                             <TextInput
                                 style={[styles.input, { borderColor: theme.border, backgroundColor: theme.background, color: theme.text }]}

@@ -101,6 +101,7 @@ export default function RootLayout() {
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="create-profile" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
         <Stack.Screen name="search" options={{ presentation: 'fullScreenModal', headerShown: false }} />
+        <Stack.Screen name="storefront/[handle]" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />

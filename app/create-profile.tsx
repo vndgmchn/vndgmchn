@@ -56,6 +56,11 @@ export default function CreateProfileScreen() {
             return;
         }
 
+        if (bio.length > 120) {
+            Alert.alert('Error', 'Bio cannot exceed 120 characters.');
+            return;
+        }
+
         setLoading(true);
 
         const { error } = await supabase.from('profiles').insert({
@@ -144,9 +149,16 @@ export default function CreateProfileScreen() {
                             placeholderTextColor={theme.mutedText}
                             multiline
                             numberOfLines={4}
+                            maxLength={120}
                             returnKeyType="done"
                             onSubmitEditing={Keyboard.dismiss}
                         />
+                        <Text style={[
+                            styles.charCounter,
+                            { color: bio.length > 100 ? '#f59e0b' : theme.mutedText }
+                        ]}>
+                            {bio.length} / 120
+                        </Text>
                     </View>
 
                     <View style={[styles.verticallySpaced, styles.mt20, styles.buttonContainer]}>
@@ -216,5 +228,10 @@ const styles = StyleSheet.create({
     buttonText: {
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    charCounter: {
+        fontSize: 12,
+        textAlign: 'right',
+        marginTop: 4,
     },
 });
