@@ -1,240 +1,105 @@
-'use client';
+"use client";
 
-import { useState, useMemo } from 'react';
-import { StorefrontItem } from '@/lib/storefront';
-import ItemCard from './ItemCard';
+import { useState } from 'react';
+import SafeImage from './SafeImage';
+import { StorefrontTheme } from '@/lib/storefrontThemes';
 
-type Props = {
-  items: StorefrontItem[];
-};
+export default function StorefrontGrid({ items, theme, onItemClick }: { items: any[], theme?: StorefrontTheme, onItemClick?: () => void }) {
+    const [numColumns, setNumColumns] = useState(2);
+    const isDefault = !theme || theme.id === 'default';
 
-export default function StorefrontGrid({ items }: Props) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'ALL' | 'CARDS' | 'SEALED'>('ALL');
-  const [filterLang, setFilterLang] = useState<'ALL' | 'EN' | 'JP'>('ALL');
-  const [sortBy, setSortBy] = useState<'RECENT' | 'PRICE_HIGH_LOW' | 'PRICE_LOW_HIGH' | 'NAME_AZ'>('RECENT');
+    const formatCurrency = (amount: number) => {
+        return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
 
-  const sortedItems = useMemo(() => {
-    let filtered = items;
+    // UI Colors
+    const textColor = isDefault ? '#111827' : theme.textPrimary;
+    const priceColor = isDefault ? '#2563eb' : theme.buttonSurface;
 
-    if (searchQuery.trim()) {
-      const lowerQuery = searchQuery.toLowerCase();
-      filtered = filtered.filter(i => {
-        const matchTitle = i.title?.toLowerCase().includes(lowerQuery);
-        const matchSet = i.set_name?.toLowerCase().includes(lowerQuery) || i.set_name_en?.toLowerCase().includes(lowerQuery);
-        return matchTitle || matchSet;
-      });
-    }
-
-    if (filterType !== 'ALL') {
-      const targetKind = 'SEALED';
-      filtered = filtered.filter(i => filterType === 'SEALED' 
-        ? i.kind === targetKind 
-        : i.kind !== targetKind
-      );
-    }
-
-    if (filterLang !== 'ALL') {
-      const jaCode = 'JA';
-      filtered = filtered.filter(i => filterLang === 'JP'
-        ? i.language_code === jaCode
-        : i.language_code !== jaCode
-      );
-    }
-
-    return [...filtered].sort((a, b) => {
-      if (sortBy === 'PRICE_HIGH_LOW' || sortBy === 'PRICE_LOW_HIGH') {
-        const priceA = a.listing_price || 0;
-        const priceB = b.listing_price || 0;
-        return sortBy === 'PRICE_HIGH_LOW' ? priceB - priceA : priceA - priceB;
-      }
-      if (sortBy === 'NAME_AZ') {
-        return (a.title || '').localeCompare(b.title || '');
-      }
-      return 0; // RECENT keeps original ordering safely
-    });
-  }, [items, searchQuery, filterType, filterLang, sortBy]);
-
-  return (
-    <div>
-      <style>{`
-        .storefront-grid {
-          display: grid;
-          gap: 1rem;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        @media (min-width: 640px) {
-          .storefront-grid {
-            gap: 1.5rem;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-          }
-        }
-
-        @media (min-width: 1024px) {
-          .storefront-grid {
-            gap: 1.5rem;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-          }
-        }
-
-        @media (min-width: 1280px) {
-          .storefront-grid {
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-          }
-        }
-
-        .controls-container {
-          margin-bottom: 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-        
-        .search-input {
-          width: 100%;
-          padding: 0.75rem 1rem;
-          border-radius: 6px;
-          border: none;
-          background-color: #1E1E1E;
-          font-size: 0.9375rem;
-          outline: auto;
-          outline-color: transparent;
-          transition: outline-color 0.2s;
-          color: #F5F5F5;
-        }
-        
-        .search-input:focus {
-          outline-color: #10b981;
-        }
-        
-        .filters-row {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.75rem;
-          align-items: center;
-          justify-content: space-between;
-        }
-        
-        .pill-group {
-          display: flex;
-          background-color: #1E1E1E;
-          border-radius: 6px;
-          padding: 3px;
-          overflow: hidden;
-        }
-        
-        .pill {
-          padding: 0.375rem 0.75rem;
-          font-size: 0.75rem;
-          font-weight: 600;
-          border-radius: 6px;
-          cursor: pointer;
-          color: #A3A3A3;
-          border: none;
-          background: transparent;
-          transition: all 0.2s ease;
-        }
-        
-        .pill.active {
-          background-color: #121212;
-          color: #F5F5F5;
-          box-shadow: none;
-        }
-        
-        .sort-select {
-          padding: 0.45rem 1rem;
-          font-size: 0.75rem;
-          font-weight: 600;
-          border-radius: 6px;
-          border: none;
-          background-color: #1E1E1E;
-          color: #F5F5F5;
-          cursor: pointer;
-          appearance: none;
-          background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23A3A3A3%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-          background-repeat: no-repeat;
-          background-position: right 0.7rem top 50%;
-          background-size: 0.65rem auto;
-          padding-right: 2rem;
-          outline: auto;
-          outline-color: transparent;
-        }
-        
-        .sort-select:focus {
-          outline-color: #10b981;
-        }
-        
-        .empty-state {
-          padding: 4rem 1rem;
-          text-align: center;
-          color: #A3A3A3;
-          background: #1E1E1E;
-          border-radius: 6px;
-          border: none;
-          box-shadow: none;
-        }
-      `}</style>
-      
-      <div className="controls-container">
-        <input 
-          type="search" 
-          placeholder="Search listings..." 
-          className="search-input"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-        />
-        <div className="filters-row">
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <div className="pill-group">
-              {(['ALL', 'CARDS', 'SEALED'] as const).map(type => (
-                <button
-                  key={type}
-                  className={`pill ${filterType === type ? 'active' : ''}`}
-                  onClick={() => setFilterType(type)}
-                >
-                  {type === 'ALL' ? 'All Types' : type === 'CARDS' ? 'Cards' : 'Sealed'}
-                </button>
-              ))}
+    if (items.length === 0) {
+        return (
+            <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                <p className="text-gray-500 text-lg">Nothing for sale right now.</p>
             </div>
-            <div className="pill-group">
-              {(['ALL', 'EN', 'JP'] as const).map(lang => (
-                <button
-                  key={lang}
-                  className={`pill ${filterLang === lang ? 'active' : ''}`}
-                  onClick={() => setFilterLang(lang)}
-                >
-                  {lang === 'ALL' ? 'All Langs' : lang === 'EN' ? 'EN' : 'JP'}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <select 
-              className="sort-select"
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as 'RECENT' | 'PRICE_HIGH_LOW' | 'PRICE_LOW_HIGH' | 'NAME_AZ')}
-            >
-              <option value="RECENT">Recent</option>
-              <option value="PRICE_HIGH_LOW">Price: High to Low</option>
-              <option value="PRICE_LOW_HIGH">Price: Low to High</option>
-              <option value="NAME_AZ">Name: A to Z</option>
-            </select>
-          </div>
-        </div>
-      </div>
+        );
+    }
 
-      {sortedItems.length > 0 ? (
-        <div className="storefront-grid">
-          {sortedItems.map((item) => (
-            <ItemCard key={item.item_id} item={item} />
-          ))}
+    return (
+        <div>
+            {/* Toggle Row */}
+            <div className="flex gap-4 mb-6">
+                <button
+                    onClick={() => setNumColumns(2)}
+                    style={{ 
+                        backgroundColor: (numColumns === 2 ? (isDefault ? '#eff6ff' : theme.buttonSurface) : '#f3f4f6') as string,
+                        color: (numColumns === 2 ? (isDefault ? '#1d4ed8' : theme.buttonText) : '#4b5563') as string
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                    Grid
+                </button>
+                <button
+                    onClick={() => setNumColumns(3)}
+                    style={{ 
+                        backgroundColor: (numColumns === 3 ? (isDefault ? '#eff6ff' : theme.buttonSurface) : '#f3f4f6') as string,
+                        color: (numColumns === 3 ? (isDefault ? '#1d4ed8' : theme.buttonText) : '#4b5563') as string
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                    </svg>
+                    Binder
+                </button>
+            </div>
+
+            <div className={`grid gap-4 sm:gap-6 ${numColumns === 2 ? 'grid-cols-2 sm:grid-cols-2' : 'grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'}`}>
+                {items.map((item: any, i: number) => (
+                    <button 
+                        key={item.item_id || i}
+                        onClick={onItemClick}
+                        className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden text-left hover:shadow-md transition-shadow active:scale-[0.98]"
+                    >
+                        <div className={`w-full bg-gray-100 flex items-center justify-center border-b border-gray-200 p-4 ${numColumns === 3 ? 'h-32 sm:h-48' : 'h-48 sm:h-64'}`}>
+                            {item.image_url ? (
+                                <SafeImage
+                                    src={item.image_url}
+                                    alt={item.title}
+                                    className="h-full w-auto object-contain drop-shadow-md rounded-md"
+                                    loading="lazy"
+                                />
+                            ) : (
+                                <span className={`text-gray-400 font-medium text-center ${numColumns === 3 ? 'text-xs' : 'text-sm'}`}>📸 No Image</span>
+                            )}
+                        </div>
+                        <div className={`w-full flex-1 flex flex-col justify-between ${numColumns === 3 ? 'p-3' : 'p-4 sm:p-5'}`}>
+                            <div>
+                                <h3 style={{ color: textColor as string }} className={`font-bold mb-1 truncate ${numColumns === 3 ? 'text-xs sm:text-sm' : 'text-sm sm:text-lg'}`} title={item.title}>{item.title}</h3>
+                                {(item.set_name || item.collector_number) && (
+                                    <p className={`font-medium text-gray-500 mb-1 truncate ${numColumns === 3 ? 'text-[10px]' : 'text-xs'}`}>
+                                        {item.set_name} {item.collector_number ? `#${item.collector_number}` : ''}
+                                    </p>
+                                )}
+                                <p className={`text-gray-500 mb-2 font-medium ${numColumns === 3 ? 'text-[10px]' : 'text-sm'}`}>Qty: {item.quantity}</p>
+                            </div>
+                            <div className="mt-auto flex justify-between items-end w-full">
+                                <span style={{ color: priceColor as string }} className={`font-extrabold ${numColumns === 3 ? 'text-sm' : 'text-lg sm:text-2xl'}`}>{formatCurrency(item.listing_price || 0)}</span>
+
+                                {item.market_price && (
+                                    <div className="text-right flex flex-col items-end">
+                                        <span className={`text-gray-500 font-medium whitespace-nowrap ${numColumns === 3 ? 'text-[9px]' : 'text-xs'}`}>
+                                            Mkt: {formatCurrency(item.market_price)}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </button>
+                ))}
+            </div>
         </div>
-      ) : (
-        <div className="empty-state">
-          <p style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 500 }}>No listings found matching your search.</p>
-        </div>
-      )}
-    </div>
-  );
+    );
 }
