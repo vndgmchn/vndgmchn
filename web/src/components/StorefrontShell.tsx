@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import StorefrontGrid from './StorefrontGrid';
-import SafeImage from './SafeImage';
-import DiscoveryModal from './DiscoveryModal';
+'use client';
+import { getThemePreset } from '@/constants/storefrontThemes';
 import { supabase } from '@/lib/supabase';
-import { getThemePreset, StorefrontTheme } from '@/constants/storefrontThemes';
+import { useEffect, useState } from 'react';
+import DiscoveryModal from './DiscoveryModal';
+import SafeImage from './SafeImage';
+import StorefrontGrid from './StorefrontGrid';
 
 type Profile = {
     handle: string;
@@ -71,11 +72,11 @@ export default function StorefrontShell({ profile, collections, initialCollectio
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
                 <div style={{ backgroundColor: bannerColor as string }} className="h-24 sm:h-32"></div>
                 <div className="px-6 pb-6 relative">
-                    <div 
-                        style={{ 
+                    <div
+                        style={{
                             backgroundColor: (isDefault ? '#eff6ff' : theme.cardBackground) as string,
                             color: accentColor as string
-                        }} 
+                        }}
                         className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white flex items-center justify-center absolute -top-12 sm:-top-16 shadow-md font-bold text-3xl overflow-hidden"
                     >
                         {profile.avatar_url ? (
@@ -86,7 +87,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                     </div>
                     <div className="mt-14 sm:mt-18">
                         {activeCollectionId && (
-                            <button 
+                            <button
                                 onClick={() => setActiveCollectionId(null)}
                                 style={{ color: accentColor as string }}
                                 className="flex items-center text-sm font-semibold mb-4 transition-opacity hover:opacity-75"
@@ -112,7 +113,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                             <button
                                 key={col.id || col.collection_id}
                                 onClick={() => setActiveCollectionId(col.id || col.collection_id)}
-                                style={{ 
+                                style={{
                                     backgroundColor: (isDefault ? '#fff' : theme.cardBackground) as string,
                                     borderColor: isDefault ? '#e5e7eb' : 'transparent'
                                 }}
@@ -133,9 +134,9 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                                 {col.preview_items && col.preview_items.length > 0 && (
                                     <div className="flex gap-2 mt-4 overflow-hidden">
                                         {col.preview_items.slice(0, 8).map((p: any, idx: number) => (
-                                            <div 
-                                                key={idx} 
-                                                style={{ 
+                                            <div
+                                                key={idx}
+                                                style={{
                                                     backgroundColor: isDefault ? '#f3f4f6' : 'rgba(255,255,255,0.4)',
                                                     borderColor: isDefault ? '#e5e7eb' : 'rgba(0,0,0,0.05)'
                                                 }}
@@ -167,9 +168,9 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                 </div>
             )}
 
-            <DiscoveryModal 
-                isOpen={showDiscoveryModal} 
-                onClose={() => setShowDiscoveryModal(false)} 
+            <DiscoveryModal
+                isOpen={showDiscoveryModal}
+                onClose={() => setShowDiscoveryModal(false)}
                 theme={theme}
             />
         </div>
