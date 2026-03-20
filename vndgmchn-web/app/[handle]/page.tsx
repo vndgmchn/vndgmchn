@@ -19,15 +19,15 @@ export async function generateMetadata({ params }: { params: Props['params'] }) 
     const RESERVED_HANDLES = ['pricing', 'about', 'contact', 'terms', 'privacy', 'api', 'login', 'signup', 'dashboard', 'admin', 'support', 'settings', 'u'];
     if (!handle || RESERVED_HANDLES.includes(handle)) return { title: 'VNDG MCHN Storefront' };
 
-    const { data: collections } = await supabase.rpc('get_public_collections_by_handle', {
+    const { data: profileRows, error: profileError } = await supabase.rpc('get_storefront_by_handle', {
         p_handle: handle
     });
 
-    if (!collections || collections.length === 0) {
+    if (profileError || !profileRows || profileRows.length === 0) {
         return { title: 'Storefront Not Found | VNDG MCHN' };
     }
 
-    const profile = collections[0].profile;
+    const profile = profileRows[0];
     return {
         title: `@${profile.handle} | VNDG MCHN`,
         description: profile.bio || `Check out @${profile.handle}'s public storefront on VNDG MCHN.`,
@@ -49,37 +49,34 @@ export default async function HandleStorefrontPage({ params, searchParams }: Pro
         notFound();
     }
 
-    // Load collections + profile info in one go
-    const { data: collections, error } = await supabase.rpc('get_public_collections_by_handle', {
+    // Phase 1: Verify profile existence
+    const { data: profileRows, error: profileError } = await supabase.rpc('get_storefront_by_handle', {
         p_handle: handle
     });
 
-    if (error || !collections || collections.length === 0) {
-        // Fallback for case sensitivity or missing function
-        const { data: d2 } = await supabase.rpc('get_public_collections_by_handle', {
-            handle: handle
-        });
-        
-        if (!d2 || d2.length === 0) {
-            notFound();
-        }
-        
-        const profile = d2[0].profile;
-        return (
-            <StorefrontShell 
-                profile={profile} 
-                collections={d2}
-                initialCollectionId={collectionId || null} 
-            />
-        );
+    if (profileError || !profileRows || profileRows.length === 0) {
+        notFound();
     }
 
-    const profile = collections[0].profile;
+    const firstRow = profileRows[0];
+    const profile = {
+        handle: firstRow.handle,
+        display_name: firstRow.display_name,
+        bio: firstRow.bio,
+        avatar_url: firstRow.avatar_url,
+        banner_url: firstRow.banner_url,
+        theme_preset: firstRow.theme_preset
+    };
+
+    // Phase 2: Get Collections
+    const { data: collections } = await supabase.rpc('get_public_collections_by_handle', {
+        p_handle: handle
+    });
 
     return (
         <StorefrontShell 
             profile={profile} 
-            collections={collections}
+            collections={collections || []}
             initialCollectionId={collectionId || null} 
         />
     );

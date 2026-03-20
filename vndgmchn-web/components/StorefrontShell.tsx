@@ -109,52 +109,66 @@ export default function StorefrontShell({ profile, collections, initialCollectio
             {!activeCollectionId ? (
                 <div>
                     <h2 style={{ color: textColor as string }} className="text-2xl font-bold mb-6">Collections</h2>
-                    <div className="grid grid-cols-1 gap-6">
-                        {collections.map((col) => (
-                            <button
-                                key={col.id || col.collection_id}
-                                onClick={() => setActiveCollectionId(col.id || col.collection_id)}
-                                style={{ 
-                                    backgroundColor: (isDefault ? '#fff' : theme.cardBackground) as string,
-                                    borderColor: isDefault ? '#e5e7eb' : 'transparent'
-                                }}
-                                className="rounded-xl border p-6 text-left hover:shadow-md transition-all group"
-                            >
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 style={{ color: textColor as string }} className="text-xl font-bold group-hover:opacity-75 transition-opacity">{col.name}</h3>
-                                        {col.description && (
-                                            <p style={{ color: mutedTextColor as string }} className="text-sm mt-1">{col.description}</p>
-                                        )}
+                    {collections.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-6">
+                            {collections.map((col) => (
+                                <button
+                                    key={col.id || col.collection_id}
+                                    onClick={() => setActiveCollectionId(col.id || col.collection_id)}
+                                    style={{ 
+                                        backgroundColor: (isDefault ? '#fff' : theme.cardBackground) as string,
+                                        borderColor: isDefault ? '#e5e7eb' : 'transparent'
+                                    }}
+                                    className="rounded-xl border p-6 text-left hover:shadow-md transition-all group"
+                                >
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h3 style={{ color: textColor as string }} className="text-xl font-bold group-hover:opacity-75 transition-opacity">{col.name}</h3>
+                                            {col.description && (
+                                                <p style={{ color: mutedTextColor as string }} className="text-sm mt-1">{col.description}</p>
+                                            )}
+                                        </div>
+                                        <div className="text-right">
+                                            <span style={{ color: accentColor as string }} className="font-semibold text-sm">{col.active_count || 0} items</span>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <span style={{ color: accentColor as string }} className="font-semibold text-sm">{col.active_count || 0} items</span>
-                                    </div>
-                                </div>
 
-                                {col.preview_items && col.preview_items.length > 0 && (
-                                    <div className="flex gap-2 mt-4 overflow-hidden">
-                                        {col.preview_items.slice(0, 8).map((p: any, idx: number) => (
-                                            <div 
-                                                key={idx} 
-                                                style={{ 
-                                                    backgroundColor: isDefault ? '#f3f4f6' : 'rgba(255,255,255,0.4)',
-                                                    borderColor: isDefault ? '#e5e7eb' : 'rgba(0,0,0,0.05)'
-                                                }}
-                                                className="w-12 h-16 rounded border overflow-hidden flex-shrink-0"
-                                            >
-                                                {p.image_url ? (
-                                                    <SafeImage src={p.image_url} alt="" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">📸</div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </button>
-                        ))}
-                    </div>
+                                    {col.preview_items && col.preview_items.length > 0 && (
+                                        <div className="flex gap-2 mt-4 overflow-hidden">
+                                            {col.preview_items.slice(0, 8).map((p: any, idx: number) => (
+                                                <div 
+                                                    key={idx} 
+                                                    style={{ 
+                                                        backgroundColor: isDefault ? '#f3f4f6' : 'rgba(255,255,255,0.4)',
+                                                        borderColor: isDefault ? '#e5e7eb' : 'rgba(0,0,0,0.05)'
+                                                    }}
+                                                    className="w-12 h-16 rounded border overflow-hidden flex-shrink-0"
+                                                >
+                                                    {p.image_url ? (
+                                                        <SafeImage src={p.image_url} alt="" className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">📸</div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div 
+                            style={{ 
+                                backgroundColor: (isDefault ? '#fff' : theme.cardBackground) as string,
+                                borderColor: isDefault ? '#e5e7eb' : 'transparent'
+                            }}
+                            className="rounded-xl border p-12 text-center"
+                        >
+                            <p style={{ color: mutedTextColor as string }} className="text-lg font-medium">
+                                This seller has no public collections yet
+                            </p>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div>
