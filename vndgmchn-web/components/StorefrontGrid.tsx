@@ -8,7 +8,8 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
     const [numColumns, setNumColumns] = useState(2);
     const isDefault = !theme || theme.id === 'default';
 
-    const formatCurrency = (amount: number) => {
+    const formatCurrency = (amount: number | null | undefined) => {
+        if (amount == null) return '$0.00';
         return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
 

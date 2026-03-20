@@ -83,7 +83,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                         {profile.avatar_url ? (
                             <img src={profile.avatar_url} alt={profile.handle} className="w-full h-full object-cover" />
                         ) : (
-                            profile.display_name ? profile.display_name.charAt(0).toUpperCase() : profile.handle.charAt(0).toUpperCase()
+                            (profile.display_name || profile.handle || '?').charAt(0).toUpperCase()
                         )}
                     </div>
                     <div className="mt-14 sm:mt-18">
@@ -174,12 +174,12 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                 <div>
                     <div className="flex justify-between items-end mb-6">
                         <div>
-                            <h2 style={{ color: textColor as string }} className="text-2xl font-bold">{activeCollection?.name}</h2>
-                            <p style={{ color: mutedTextColor as string }} className="text-sm">{items.length} items available</p>
+                            <h2 style={{ color: textColor as string }} className="text-2xl font-bold">{activeCollection?.name || 'Collection'}</h2>
+                            <p style={{ color: mutedTextColor as string }} className="text-sm">{(items || []).length} items available</p>
                         </div>
                         {loading && <div style={{ borderTopColor: 'transparent', borderColor: accentColor as string }} className="animate-spin h-5 w-5 border-2 rounded-full mb-1" />}
                     </div>
-                    <StorefrontGrid items={items} theme={theme} onItemClick={() => setShowDiscoveryModal(true)} />
+                    <StorefrontGrid items={items || []} theme={theme} onItemClick={() => setShowDiscoveryModal(true)} />
                 </div>
             )}
 
