@@ -59,9 +59,21 @@ export default async function HandleStorefrontPage({ params, searchParams }: Pro
     }
 
     // Phase 1: Attempt to fetch collections first (matching the last known working path)
-    const { data: collections, error: collectionsError } = await supabase.rpc('get_public_collections_by_handle', {
+    const collectionsRes = await supabase.rpc('get_public_collections_by_handle', {
         p_handle: handle
     });
+    
+    let collections = collectionsRes.data;
+    let collectionsError = collectionsRes.error;
+
+    // Fallback for environment/DB drift where the parameter is named 'handle' instead of 'p_handle'
+    if (collectionsError && collectionsError.message.includes('function get_public_collections_by_handle')) {
+        const retryRes = await supabase.rpc('get_public_collections_by_handle', {
+            handle: handle
+        } as any);
+        collections = retryRes.data;
+        collectionsError = retryRes.error;
+    }
 
     // Phase 2: If we have collections, extract the profile from the first row (preserves original data shape)
     // This resolves the regression where the manual profile construction was subtly different.

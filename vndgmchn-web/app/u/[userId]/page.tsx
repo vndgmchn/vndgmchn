@@ -36,9 +36,20 @@ export default async function UserIdStorefrontPage({ params, searchParams }: Pro
     };
 
     // Phase 2: Get Collections by the resolved handle
-    const { data: collections, error: collectionsError } = await supabase.rpc('get_public_collections_by_handle', {
+    const collectionsRes = await supabase.rpc('get_public_collections_by_handle', {
         p_handle: profile.handle
     });
+    
+    let collections = collectionsRes.data;
+    let collectionsError = collectionsRes.error;
+
+    if (collectionsError && collectionsError.message.includes('function get_public_collections_by_handle')) {
+        const retryRes = await supabase.rpc('get_public_collections_by_handle', {
+            handle: profile.handle
+        } as any);
+        collections = retryRes.data;
+        collectionsError = retryRes.error;
+    }
 
     if (collectionsError || !collections || collections.length === 0) {
         // Even if no collections exist, we should still show the empty shell for that profile
