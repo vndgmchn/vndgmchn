@@ -22,17 +22,11 @@ export async function generateMetadata({ params }: { params: Props['params'] }) 
     const RESERVED_HANDLES = ['pricing', 'about', 'contact', 'terms', 'privacy', 'api', 'login', 'signup', 'dashboard', 'admin', 'support', 'settings', 'u'];
     if (!handle || RESERVED_HANDLES.includes(handle)) return { title: 'VNDG MCHN Storefront' };
 
-    const { data: collections, error } = await supabaseAdmin.rpc('get_public_collections_by_handle', {
-        handle: handle
-    } as any);
+    const { data: collections } = await supabaseAdmin.rpc('get_public_collections_by_handle', {
+        p_handle: handle
+    });
 
-    let finalData = collections;
-    if (error && error.message.includes('function get_public_collections_by_handle')) {
-        const { data: d2 } = await supabaseAdmin.rpc('get_public_collections_by_handle', {
-            p_handle: handle
-        });
-        finalData = d2;
-    }
+    const finalData = collections;
 
     let profile = (finalData?.[0] as any)?.profile;
 
@@ -68,17 +62,11 @@ export default async function StorefrontPage({ params, searchParams }: Props) {
     }
 
     // Load collections + profile info in one go, trying the correct 'handle' signature first
-    const { data: collections, error } = await supabaseAdmin.rpc('get_public_collections_by_handle', {
-        handle: handle
-    } as any);
+    const { data: collections } = await supabaseAdmin.rpc('get_public_collections_by_handle', {
+        p_handle: handle
+    });
 
-    let finalData = collections;
-    if (error && error.message.includes('function get_public_collections_by_handle')) {
-        const { data: d2 } = await supabaseAdmin.rpc('get_public_collections_by_handle', {
-            p_handle: handle
-        });
-        finalData = d2;
-    }
+    const finalData = collections;
 
     let profile = (finalData?.[0] as any)?.profile;
 
