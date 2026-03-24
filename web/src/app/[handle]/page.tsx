@@ -1,5 +1,6 @@
 import StorefrontShell from '@/components/StorefrontShell';
 import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { normalizeHandle } from '@/lib/utils';
 import { notFound } from 'next/navigation';
 
@@ -19,13 +20,13 @@ export async function generateMetadata({ params }: { params: Props['params'] }) 
     const RESERVED_HANDLES = ['pricing', 'about', 'contact', 'terms', 'privacy', 'api', 'login', 'signup', 'dashboard', 'admin', 'support', 'settings', 'u'];
     if (!handle || RESERVED_HANDLES.includes(handle)) return { title: 'VNDG MCHN Storefront' };
 
-    const { data: collections, error } = await supabase.rpc('get_public_collections_by_handle', {
+    const { data: collections, error } = await supabaseAdmin.rpc('get_public_collections_by_handle', {
         handle: handle
     } as any);
 
     let finalData = collections;
     if (error && error.message.includes('function get_public_collections_by_handle')) {
-        const { data: d2 } = await supabase.rpc('get_public_collections_by_handle', {
+        const { data: d2 } = await supabaseAdmin.rpc('get_public_collections_by_handle', {
             p_handle: handle
         });
         finalData = d2;
@@ -65,13 +66,13 @@ export default async function StorefrontPage({ params, searchParams }: Props) {
     }
 
     // Load collections + profile info in one go, trying the correct 'handle' signature first
-    const { data: collections, error } = await supabase.rpc('get_public_collections_by_handle', {
+    const { data: collections, error } = await supabaseAdmin.rpc('get_public_collections_by_handle', {
         handle: handle
     } as any);
 
     let finalData = collections;
     if (error && error.message.includes('function get_public_collections_by_handle')) {
-        const { data: d2 } = await supabase.rpc('get_public_collections_by_handle', {
+        const { data: d2 } = await supabaseAdmin.rpc('get_public_collections_by_handle', {
             p_handle: handle
         });
         finalData = d2;
@@ -81,7 +82,7 @@ export default async function StorefrontPage({ params, searchParams }: Props) {
 
     // Fallback: If they have zero public collections, get their profile via the storefront items RPC
     if (!profile) {
-        const { data: profileRows } = await supabase.rpc('get_storefront_by_handle', {
+        const { data: profileRows } = await supabaseAdmin.rpc('get_storefront_by_handle', {
             p_handle: handle
         });
 
