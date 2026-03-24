@@ -1,5 +1,6 @@
 'use client';
 import { getThemePreset } from '@/constants/storefrontThemes';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import DiscoveryModal from './DiscoveryModal';
 import SafeImage from './SafeImage';
@@ -22,7 +23,19 @@ type Props = {
 };
 
 export default function StorefrontShell({ profile, collections, initialCollectionId, initialItems = [] }: Props) {
-    const [activeCollectionId, setActiveCollectionId] = useState<string | null>(initialCollectionId);
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    // Derive active collection from URL — falls back to SSR-provided initialCollectionId
+    const activeCollectionId = searchParams.get('collection') ?? initialCollectionId;
+
+    const setActiveCollection = (id: string | null) => {
+        if (id) {
+            router.push(`?collection=${encodeURIComponent(id)}`);
+        } else {
+            router.back();
+        }
+    };
+
     const [items, setItems] = useState<any[]>(initialItems);
     const [loading, setLoading] = useState(false);
     const [showDiscoveryModal, setShowDiscoveryModal] = useState(false);
@@ -67,6 +80,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
     }, [activeCollectionId]);
 
     const activeCollection = collections.find(c => (c.id || c.collection_id) === activeCollectionId);
+    const isInCollection = !!activeCollectionId;
 
     return (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-screen">
@@ -102,13 +116,13 @@ export default function StorefrontShell({ profile, collections, initialCollectio
 
                     {/* Name / Handle / Bio */}
                     <div className="pt-2 min-w-0">
-                        {activeCollectionId && (
+                        {isInCollection && (
                             <button
-                                onClick={() => setActiveCollectionId(null)}
-                                style={{ color: accentColor as string }}
-                                className="flex items-center gap-1 text-xs font-semibold mb-2 transition-opacity hover:opacity-75"
+                                onClick={() => setActiveCollection(null)}
+                                style={{ color: accentColor as string, backgroundColor: isDefault ? '#eff6ff' : (theme.cardBackground || '#eff6ff') }}
+                                className="inline-flex items-center gap-1 text-xs font-semibold mb-2 px-2 py-1 rounded-full transition-all hover:opacity-75"
                             >
-                                ← Back to Store
+                                &#8592; Back to Store
                             </button>
                         )}
                         <h1 style={{ color: textColor as string }} className="text-xl font-extrabold leading-tight truncate">{profile.display_name || `@${profile.handle}`}</h1>
@@ -121,50 +135,56 @@ export default function StorefrontShell({ profile, collections, initialCollectio
             </div>
 
             {/* Content Area - Swaps between Collection List and Items */}
-            {!activeCollectionId ? (
+            {!isInCollection ? (
                 <div>
-                    <h2 style={{ color: textColor as string }} className="text-2xl font-bold mb-6">Collections</h2>
-                    
+                    <h2 style={{ color: textColor as string }} className="text-lg font-bold mb-4 tracking-tight">Collections</h2>
+
                     {collections.length === 0 ? (
-                        <div className="text-center py-12 px-4 rounded-xl border border-dashed" style={{ borderColor: isDefault ? '#e5e7eb' : (theme.textSecondary || undefined) }}>
-                            <div className="text-4xl mb-4 opacity-50">📂</div>
-                            <h3 style={{ color: textColor as string }} className="text-lg font-bold">No public collections available.</h3>
-                            <p style={{ color: mutedTextColor as string }} className="text-sm mt-2 max-w-sm mx-auto">This seller hasn't added any public collections to their storefront yet.</p>
+                        <div className="text-center py-16 px-4 rounded-2xl border border-dashed" style={{ borderColor: isDefault ? '#e5e7eb' : (theme.textSecondary || undefined) }}>
+                            <div className="text-4xl mb-3 opacity-40">📂</div>
+                            <h3 style={{ color: textColor as string }} className="text-base font-bold">No public collections yet.</h3>
+                            <p style={{ color: mutedTextColor as string }} className="text-sm mt-1 max-w-xs mx-auto">This seller hasn't shared any public collections.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 gap-6">
+                        <div className="flex flex-col gap-4">
                             {collections.map((col) => (
                                 <button
                                     key={col.id || col.collection_id}
-                                    onClick={() => setActiveCollectionId(col.id || col.collection_id)}
+                                    onClick={() => setActiveCollection(col.id || col.collection_id)}
                                     style={{
                                         backgroundColor: (isDefault ? '#fff' : theme.cardBackground) as string,
                                         borderColor: isDefault ? '#e5e7eb' : 'transparent'
                                     }}
-                                    className="rounded-xl border p-6 text-left hover:shadow-md transition-all group"
+                                    className="rounded-2xl border p-5 text-left hover:shadow-md transition-all group"
                                 >
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h3 style={{ color: textColor as string }} className="text-xl font-bold group-hover:opacity-75 transition-opacity">{col.name}</h3>
-                                            {col.description && (
-                                                <p style={{ color: mutedTextColor as string }} className="text-sm mt-1">{col.description}</p>
-                                            )}
-                                        </div>
-                                        <div className="text-right">
-                                            <span style={{ color: accentColor as string }} className="font-semibold text-sm">{col.active_count || 0} items</span>
-                                        </div>
+                                    {/* Top row: name + item count badge */}
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h3 style={{ color: textColor as string }} className="text-base font-bold group-hover:opacity-75 transition-opacity leading-snug">{col.name}</h3>
+                                        <span
+                                            style={{
+                                                backgroundColor: isDefault ? '#eff6ff' : 'rgba(255,255,255,0.15)',
+                                                color: accentColor as string
+                                            }}
+                                            className="ml-3 flex-shrink-0 text-xs font-bold px-2.5 py-1 rounded-full"
+                                        >
+                                            {col.active_count || 0} items
+                                        </span>
                                     </div>
 
+                                    {col.description && (
+                                        <p style={{ color: mutedTextColor as string }} className="text-xs mb-3 leading-relaxed">{col.description}</p>
+                                    )}
+
                                     {col.preview_items && col.preview_items.length > 0 && (
-                                        <div className="flex gap-2 mt-4 overflow-hidden">
-                                            {col.preview_items.slice(0, 8).map((p: any, idx: number) => (
+                                        <div className="flex gap-2 mt-3 overflow-hidden">
+                                            {col.preview_items.slice(0, 6).map((p: any, idx: number) => (
                                                 <div
                                                     key={idx}
                                                     style={{
                                                         backgroundColor: isDefault ? '#f3f4f6' : 'rgba(255,255,255,0.4)',
                                                         borderColor: isDefault ? '#e5e7eb' : 'rgba(0,0,0,0.05)'
                                                     }}
-                                                    className="w-12 h-16 rounded border overflow-hidden flex-shrink-0"
+                                                    className="w-11 h-16 rounded-lg border overflow-hidden flex-shrink-0"
                                                 >
                                                     {p.image_url ? (
                                                         <SafeImage src={p.image_url} alt="" className="w-full h-full object-cover" />
@@ -182,12 +202,12 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                 </div>
             ) : (
                 <div>
-                    <div className="flex justify-between items-end mb-6">
+                    <div className="flex justify-between items-center mb-5">
                         <div>
-                            <h2 style={{ color: textColor as string }} className="text-2xl font-bold">{activeCollection?.name}</h2>
-                            <p style={{ color: mutedTextColor as string }} className="text-sm">{items.length} items available</p>
+                            <h2 style={{ color: textColor as string }} className="text-xl font-bold leading-tight">{activeCollection?.name}</h2>
+                            <p style={{ color: mutedTextColor as string }} className="text-xs mt-0.5">{items.length} items available</p>
                         </div>
-                        {loading && <div style={{ borderTopColor: 'transparent', borderColor: accentColor as string }} className="animate-spin h-5 w-5 border-2 rounded-full mb-1" />}
+                        {loading && <div style={{ borderTopColor: 'transparent', borderColor: accentColor as string }} className="animate-spin h-5 w-5 border-2 rounded-full" />}
                     </div>
                     <StorefrontGrid items={items} theme={theme} onItemClick={() => setShowDiscoveryModal(true)} />
                 </div>
