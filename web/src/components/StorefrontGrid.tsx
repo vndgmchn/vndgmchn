@@ -31,19 +31,22 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                         onClick={onItemClick}
                         className="rounded-xl shadow-sm border border-gray-200 dark:border-[#2c2c2e] bg-white dark:bg-[#1c1c1e] flex flex-col overflow-hidden text-left hover:shadow-md transition-shadow active:scale-[0.98]"
                     >
-                        {/* Image area — dark bg with blurred image behind, matching mobile */}
+                        {/* Image area — theme responsive bg with blurred image behind */}
                         <div
-                            className="w-full relative flex items-center justify-center overflow-hidden h-48 sm:h-64"
-                            style={{ backgroundColor: '#121212' }}
+                            className="w-full relative flex items-center justify-center overflow-hidden h-48 sm:h-64 bg-[#f2f2f2] dark:bg-[#121212]"
                         >
                             {item.image_url && (
-                                <img
-                                    src={item.image_url}
-                                    alt=""
-                                    className="absolute inset-0 w-full h-full object-cover opacity-40"
-                                    style={{ filter: 'blur(12px)', transform: 'scale(1.1)' }}
-                                    aria-hidden="true"
-                                />
+                                <>
+                                    <img
+                                        src={item.image_url}
+                                        alt=""
+                                        className="absolute inset-0 w-full h-full object-cover"
+                                        style={{ filter: 'blur(12px)', transform: 'scale(1.1)' }}
+                                        aria-hidden="true"
+                                    />
+                                    {/* Light/Dark Overlay to tint the blur appropriately */}
+                                    <div className="absolute inset-0 bg-white/70 dark:bg-black/50" />
+                                </>
                             )}
                             {item.image_url ? (
                                 <SafeImage
