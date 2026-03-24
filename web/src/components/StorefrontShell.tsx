@@ -72,18 +72,26 @@ export default function StorefrontShell({ profile, collections, initialCollectio
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-screen">
             {/* Header / Profile Card - Persistent */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
-                <div style={{ backgroundColor: bannerColor as string }} className="h-24 sm:h-32 relative">
+                {/* Banner */}
+                <div style={{ backgroundColor: bannerColor as string }} className="h-28 sm:h-36 relative">
                     {profile.banner_url && (
                         <img src={profile.banner_url} alt="Cover" className="w-full h-full object-cover absolute inset-0" />
                     )}
                 </div>
-                <div className="px-6 pb-6 relative">
+
+                {/* Identity Row - avatar left, name/bio right */}
+                <div className="px-5 py-4 flex items-start gap-4">
+                    {/* Avatar */}
                     <div
                         style={{
                             backgroundColor: (isDefault ? '#eff6ff' : theme.cardBackground) as string,
-                            color: accentColor as string
+                            color: accentColor as string,
+                            minWidth: 76,
+                            minHeight: 76,
+                            width: 76,
+                            height: 76,
                         }}
-                        className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white flex items-center justify-center absolute -top-12 sm:-top-16 shadow-md font-bold text-3xl overflow-hidden"
+                        className="rounded-full border-4 border-white shadow-md font-bold text-2xl overflow-hidden flex items-center justify-center flex-shrink-0 -mt-10"
                     >
                         {profile.avatar_url ? (
                             <img src={profile.avatar_url} alt={profile.handle} className="w-full h-full object-cover" />
@@ -91,20 +99,22 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                             profile.display_name ? profile.display_name.charAt(0).toUpperCase() : profile.handle.charAt(0).toUpperCase()
                         )}
                     </div>
-                    <div className="mt-14 sm:mt-18">
+
+                    {/* Name / Handle / Bio */}
+                    <div className="pt-2 min-w-0">
                         {activeCollectionId && (
                             <button
                                 onClick={() => setActiveCollectionId(null)}
                                 style={{ color: accentColor as string }}
-                                className="flex items-center text-sm font-semibold mb-4 transition-opacity hover:opacity-75"
+                                className="flex items-center gap-1 text-xs font-semibold mb-2 transition-opacity hover:opacity-75"
                             >
                                 ← Back to Store
                             </button>
                         )}
-                        <h1 style={{ color: textColor as string }} className="text-3xl font-extrabold">{profile.display_name || `@${profile.handle}`}</h1>
-                        <p style={{ color: mutedTextColor as string }} className="text-lg font-medium">@{profile.handle}</p>
+                        <h1 style={{ color: textColor as string }} className="text-xl font-extrabold leading-tight truncate">{profile.display_name || `@${profile.handle}`}</h1>
+                        <p style={{ color: mutedTextColor as string }} className="text-sm font-medium">@{profile.handle}</p>
                         {profile.bio && (
-                            <p style={{ color: (isDefault ? '#374151' : theme.textPrimary) as string }} className="mt-4 max-w-2xl opacity-90">{profile.bio}</p>
+                            <p style={{ color: (isDefault ? '#374151' : theme.textPrimary) as string }} className="mt-1 text-sm opacity-90 line-clamp-2">{profile.bio}</p>
                         )}
                     </div>
                 </div>

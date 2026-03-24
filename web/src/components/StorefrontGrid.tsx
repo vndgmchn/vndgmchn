@@ -63,38 +63,57 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                         onClick={onItemClick}
                         className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden text-left hover:shadow-md transition-shadow active:scale-[0.98]"
                     >
-                        <div className={`w-full bg-gray-100 flex items-center justify-center border-b border-gray-200 p-4 ${numColumns === 3 ? 'h-32 sm:h-48' : 'h-48 sm:h-64'}`}>
+                        {/* Image area — dark bg with blurred image behind, matching mobile */}
+                        <div
+                            className={`w-full relative flex items-center justify-center overflow-hidden ${numColumns === 3 ? 'h-32 sm:h-48' : 'h-48 sm:h-64'}`}
+                            style={{ backgroundColor: '#121212' }}
+                        >
+                            {item.image_url && (
+                                <img
+                                    src={item.image_url}
+                                    alt=""
+                                    className="absolute inset-0 w-full h-full object-cover opacity-40"
+                                    style={{ filter: 'blur(12px)', transform: 'scale(1.1)' }}
+                                    aria-hidden="true"
+                                />
+                            )}
                             {item.image_url ? (
                                 <SafeImage
                                     src={item.image_url}
                                     alt={item.title}
-                                    className="h-full w-auto object-contain drop-shadow-md rounded-md"
+                                    className="relative z-10 h-[88%] w-auto object-contain drop-shadow-md rounded-md"
                                     loading="lazy"
                                 />
                             ) : (
-                                <span className={`text-gray-400 font-medium text-center ${numColumns === 3 ? 'text-xs' : 'text-sm'}`}>📸 No Image</span>
+                                <span className={`relative z-10 text-gray-500 font-medium text-center ${numColumns === 3 ? 'text-xs' : 'text-sm'}`}>📸 No Image</span>
                             )}
                         </div>
+
+                        {/* Info */}
                         <div className={`w-full flex-1 flex flex-col justify-between ${numColumns === 3 ? 'p-3' : 'p-4 sm:p-5'}`}>
                             <div>
-                                <h3 style={{ color: textColor as string }} className={`font-bold mb-1 truncate ${numColumns === 3 ? 'text-xs sm:text-sm' : 'text-sm sm:text-lg'}`} title={item.title}>{item.title}</h3>
+                                <h3 style={{ color: textColor as string }} className={`font-bold mb-1 truncate ${numColumns === 3 ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'}`} title={item.title}>{item.title}</h3>
                                 {(item.set_name || item.collector_number) && (
                                     <p className={`font-medium text-gray-500 mb-1 truncate ${numColumns === 3 ? 'text-[10px]' : 'text-xs'}`}>
                                         {item.set_name} {item.collector_number ? `#${item.collector_number}` : ''}
                                     </p>
                                 )}
-                                <p className={`text-gray-500 mb-2 font-medium ${numColumns === 3 ? 'text-[10px]' : 'text-sm'}`}>Qty: {item.quantity}</p>
+                                <p className={`text-gray-500 mb-2 font-medium ${numColumns === 3 ? 'text-[10px]' : 'text-xs'}`}>Qty: {item.quantity}</p>
                             </div>
+                            {/* MKT / BUY footer — matches mobile two-label layout */}
                             <div className="mt-auto flex justify-between items-end w-full">
-                                <span style={{ color: priceColor as string }} className={`font-extrabold ${numColumns === 3 ? 'text-sm' : 'text-lg sm:text-2xl'}`}>{formatCurrency(item.listing_price || 0)}</span>
-
-                                {item.market_price && (
-                                    <div className="text-right flex flex-col items-end">
-                                        <span className={`text-gray-500 font-medium whitespace-nowrap ${numColumns === 3 ? 'text-[9px]' : 'text-xs'}`}>
-                                            Mkt: {formatCurrency(item.market_price)}
-                                        </span>
-                                    </div>
-                                )}
+                                <div>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">MKT</p>
+                                    <span className={`text-gray-500 font-medium ${numColumns === 3 ? 'text-xs' : 'text-sm'}`}>
+                                        {item.market_price ? `$${parseFloat(item.market_price).toFixed(2)}` : '—'}
+                                    </span>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: priceColor as string }}>BUY</p>
+                                    <span style={{ color: priceColor as string }} className={`font-extrabold ${numColumns === 3 ? 'text-sm' : 'text-lg sm:text-xl'}`}>
+                                        ${parseFloat(item.listing_price || 0).toFixed(2)}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </button>
