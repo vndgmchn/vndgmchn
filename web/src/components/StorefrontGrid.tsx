@@ -30,11 +30,7 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
             <div className="flex gap-4 mb-6">
                 <button
                     onClick={() => setNumColumns(2)}
-                    style={{ 
-                        backgroundColor: (numColumns === 2 ? (isDefault ? '#eff6ff' : theme.buttonSurface) : '#f3f4f6') as string,
-                        color: (numColumns === 2 ? (isDefault ? '#1d4ed8' : theme.buttonText) : '#4b5563') as string
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${numColumns === 2 ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -43,11 +39,7 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                 </button>
                 <button
                     onClick={() => setNumColumns(3)}
-                    style={{ 
-                        backgroundColor: (numColumns === 3 ? (isDefault ? '#eff6ff' : theme.buttonSurface) : '#f3f4f6') as string,
-                        color: (numColumns === 3 ? (isDefault ? '#1d4ed8' : theme.buttonText) : '#4b5563') as string
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${numColumns === 3 ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'}`}
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -61,11 +53,7 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                     <button 
                         key={item.item_id || i}
                         onClick={onItemClick}
-                        className="rounded-xl shadow-sm border flex flex-col overflow-hidden text-left hover:shadow-md transition-shadow active:scale-[0.98]"
-                        style={{
-                            backgroundColor: isDefault ? '#ffffff' : (theme?.cardBackground || '#ffffff'),
-                            borderColor: isDefault ? '#e5e7eb' : 'rgba(0,0,0,0.06)',
-                        }}
+                        className="rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col overflow-hidden text-left hover:shadow-md transition-shadow active:scale-[0.98]"
                     >
                         {/* Image area — dark bg with blurred image behind, matching mobile */}
                         <div
@@ -96,25 +84,25 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                         {/* Info */}
                         <div className={`w-full flex-1 flex flex-col justify-between ${numColumns === 3 ? 'p-3' : 'p-4 sm:p-5'}`}>
                             <div>
-                                <h3 style={{ color: textColor as string }} className={`font-bold mb-1 truncate ${numColumns === 3 ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'}`} title={item.title}>{item.title}</h3>
+                                <h3 className={`font-bold mb-1 truncate text-gray-900 dark:text-gray-100 ${numColumns === 3 ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'}`} title={item.title}>{item.title}</h3>
                                 {(item.set_name || item.collector_number) && (
-                                    <p className={`font-medium text-gray-500 mb-1 truncate ${numColumns === 3 ? 'text-[10px]' : 'text-xs'}`}>
+                                    <p className={`font-medium mb-1 truncate text-gray-500 dark:text-gray-400 ${numColumns === 3 ? 'text-[10px]' : 'text-xs'}`}>
                                         {item.set_name} {item.collector_number ? `#${item.collector_number}` : ''}
                                     </p>
                                 )}
-                                <p className={`text-gray-500 mb-2 font-medium ${numColumns === 3 ? 'text-[10px]' : 'text-xs'}`}>Qty: {item.quantity}</p>
+                                <p className={`mb-2 font-medium text-gray-500 dark:text-gray-400 ${numColumns === 3 ? 'text-[10px]' : 'text-xs'}`}>Qty: {item.quantity}</p>
                             </div>
                             {/* MKT / BUY footer — matches mobile two-label layout */}
                             <div className="mt-auto flex justify-between items-end w-full">
                                 <div>
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">MKT</p>
-                                    <span className={`text-gray-500 font-medium ${numColumns === 3 ? 'text-xs' : 'text-sm'}`}>
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">MKT</p>
+                                    <span className={`font-medium text-gray-500 dark:text-gray-400 ${numColumns === 3 ? 'text-xs' : 'text-sm'}`}>
                                         {item.market_price ? `$${parseFloat(item.market_price).toFixed(2)}` : '—'}
                                     </span>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: priceColor as string }}>BUY</p>
-                                    <span style={{ color: priceColor as string }} className={`font-extrabold ${numColumns === 3 ? 'text-sm' : 'text-lg sm:text-xl'}`}>
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">BUY</p>
+                                    <span className={`font-extrabold text-blue-600 dark:text-blue-400 ${numColumns === 3 ? 'text-sm' : 'text-lg sm:text-xl'}`}>
                                         ${parseFloat(item.listing_price || 0).toFixed(2)}
                                     </span>
                                 </div>

@@ -83,10 +83,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
     const isInCollection = !!activeCollectionId;
 
     return (
-        <div
-            className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-screen"
-            style={{ backgroundColor: '#f9fafb' }}
-        >
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-screen bg-gray-50 dark:bg-gray-950">
             {/* Header / Profile Card - Persistent */}
             <div
                 className="rounded-2xl shadow-sm border mb-8"
@@ -136,17 +133,14 @@ export default function StorefrontShell({ profile, collections, initialCollectio
 
             {/* Content Area - Swaps between Collection List and Items */}
             {!isInCollection ? (
-                <div
-                    className="rounded-2xl p-5"
-                    style={{ backgroundColor: isDefault ? '#ffffff' : (theme.cardBackground ? `${theme.cardBackground}66` : '#ffffff'), border: isDefault ? '1px solid #e5e7eb' : 'none' }}
-                >
-                    <h2 style={{ color: textColor as string }} className="text-lg font-bold mb-4 tracking-tight">Collections</h2>
+                <div className="rounded-2xl p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+                    <h2 className="text-lg font-bold mb-4 tracking-tight text-gray-900 dark:text-gray-100">Collections</h2>
 
                     {collections.length === 0 ? (
-                        <div className="text-center py-16 px-4 rounded-2xl border border-dashed" style={{ borderColor: isDefault ? '#e5e7eb' : (theme.textSecondary || undefined) }}>
+                        <div className="text-center py-16 px-4 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
                             <div className="text-4xl mb-3 opacity-40">📂</div>
-                            <h3 style={{ color: textColor as string }} className="text-base font-bold">No public collections yet.</h3>
-                            <p style={{ color: mutedTextColor as string }} className="text-sm mt-1 max-w-xs mx-auto">This seller hasn't shared any public collections.</p>
+                            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">No public collections yet.</h3>
+                            <p className="text-sm mt-1 max-w-xs mx-auto text-gray-500 dark:text-gray-400">This seller hasn't shared any public collections.</p>
                         </div>
                     ) : (
                         <div className="flex flex-col gap-4">
@@ -154,28 +148,18 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                                 <button
                                     key={col.id || col.collection_id}
                                     onClick={() => setActiveCollection(col.id || col.collection_id)}
-                                    style={{
-                                        backgroundColor: (isDefault ? '#fff' : theme.cardBackground) as string,
-                                        borderColor: isDefault ? '#e5e7eb' : 'transparent'
-                                    }}
-                                    className="rounded-2xl border p-5 text-left hover:shadow-md transition-all group"
+                                    className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 text-left hover:shadow-md transition-all group"
                                 >
                                     {/* Top row: name + item count badge */}
                                     <div className="flex justify-between items-center mb-2">
-                                        <h3 style={{ color: textColor as string }} className="text-base font-bold group-hover:opacity-75 transition-opacity leading-snug">{col.name}</h3>
-                                        <span
-                                            style={{
-                                                backgroundColor: isDefault ? '#eff6ff' : 'rgba(255,255,255,0.15)',
-                                                color: accentColor as string
-                                            }}
-                                            className="ml-3 flex-shrink-0 text-xs font-bold px-2.5 py-1 rounded-full"
-                                        >
+                                        <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 group-hover:opacity-75 transition-opacity leading-snug">{col.name}</h3>
+                                        <span className="ml-3 flex-shrink-0 text-xs font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                                             {col.active_count || 0} items
                                         </span>
                                     </div>
 
                                     {col.description && (
-                                        <p style={{ color: mutedTextColor as string }} className="text-xs mb-3 leading-relaxed">{col.description}</p>
+                                        <p className="text-xs mb-3 leading-relaxed text-gray-500 dark:text-gray-400">{col.description}</p>
                                     )}
 
                                     {col.preview_items && col.preview_items.length > 0 && (
@@ -183,11 +167,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                                             {col.preview_items.slice(0, 6).map((p: any, idx: number) => (
                                                 <div
                                                     key={idx}
-                                                    style={{
-                                                        backgroundColor: isDefault ? '#f3f4f6' : 'rgba(255,255,255,0.4)',
-                                                        borderColor: isDefault ? '#e5e7eb' : 'rgba(0,0,0,0.05)'
-                                                    }}
-                                                    className="w-11 h-16 rounded-lg border overflow-hidden flex-shrink-0"
+                                                    className="w-11 h-16 rounded-lg border border-gray-200 dark:border-gray-800/60 bg-gray-100 dark:bg-gray-800 overflow-hidden flex-shrink-0"
                                                 >
                                                     {p.image_url ? (
                                                         <SafeImage src={p.image_url} alt="" className="w-full h-full object-cover" />
@@ -207,10 +187,10 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                 <div>
                     <div className="flex justify-between items-center mb-5">
                         <div>
-                            <h2 style={{ color: textColor as string }} className="text-xl font-bold leading-tight">{activeCollection?.name}</h2>
-                            <p style={{ color: mutedTextColor as string }} className="text-xs mt-0.5">{items.length} items available</p>
+                            <h2 className="text-xl font-bold leading-tight text-gray-900 dark:text-gray-100">{activeCollection?.name}</h2>
+                            <p className="text-xs mt-0.5 text-gray-500 dark:text-gray-400">{items.length} items available</p>
                         </div>
-                        {loading && <div style={{ borderTopColor: 'transparent', borderColor: accentColor as string }} className="animate-spin h-5 w-5 border-2 rounded-full" />}
+                        {loading && <div className="animate-spin h-5 w-5 border-2 rounded-full border-t-transparent border-gray-400 dark:border-gray-500" />}
                     </div>
                     <StorefrontGrid items={items} theme={theme} onItemClick={() => setShowDiscoveryModal(true)} />
                 </div>
