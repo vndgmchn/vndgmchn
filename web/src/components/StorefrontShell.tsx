@@ -1,6 +1,5 @@
 'use client';
 import { getThemePreset } from '@/constants/storefrontThemes';
-import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import DiscoveryModal from './DiscoveryModal';
 import SafeImage from './SafeImage';
@@ -47,12 +46,14 @@ export default function StorefrontShell({ profile, collections, initialCollectio
 
         const loadItems = async () => {
             setLoading(true);
-            const { data, error } = await supabase.rpc('get_public_collection_items', {
-                p_collection_id: activeCollectionId
-            });
-
-            if (!error && data) {
-                setItems(data);
+            try {
+                const res = await fetch(`/api/storefront-items?collection_id=${encodeURIComponent(activeCollectionId)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setItems(Array.isArray(data) ? data : []);
+                }
+            } catch {
+                // silently fail — items stay []
             }
             setLoading(false);
         };
