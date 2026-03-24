@@ -83,11 +83,20 @@ export default function StorefrontShell({ profile, collections, initialCollectio
     const isInCollection = !!activeCollectionId;
 
     return (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-screen">
+        <div
+            className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-screen"
+            style={{ backgroundColor: isDefault ? '#f9fafb' : (theme.cardBackground ? `${theme.cardBackground}33` : '#f9fafb') }}
+        >
             {/* Header / Profile Card - Persistent */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
-                {/* Banner */}
-                <div style={{ backgroundColor: bannerColor as string }} className="h-28 sm:h-36 relative">
+            <div
+                className="rounded-2xl shadow-sm border mb-8"
+                style={{
+                    backgroundColor: isDefault ? '#ffffff' : (theme.cardBackground || '#ffffff'),
+                    borderColor: isDefault ? '#e5e7eb' : 'transparent',
+                }}
+            >
+                {/* Banner — overflow-hidden only here so avatar can overlap */}
+                <div style={{ backgroundColor: bannerColor as string }} className="h-28 sm:h-36 relative overflow-hidden rounded-t-2xl">
                     {profile.banner_url && (
                         <img src={profile.banner_url} alt="Cover" className="w-full h-full object-cover absolute inset-0" />
                     )}
@@ -136,7 +145,10 @@ export default function StorefrontShell({ profile, collections, initialCollectio
 
             {/* Content Area - Swaps between Collection List and Items */}
             {!isInCollection ? (
-                <div>
+                <div
+                    className="rounded-2xl p-5"
+                    style={{ backgroundColor: isDefault ? '#ffffff' : (theme.cardBackground ? `${theme.cardBackground}66` : '#ffffff'), border: isDefault ? '1px solid #e5e7eb' : 'none' }}
+                >
                     <h2 style={{ color: textColor as string }} className="text-lg font-bold mb-4 tracking-tight">Collections</h2>
 
                     {collections.length === 0 ? (

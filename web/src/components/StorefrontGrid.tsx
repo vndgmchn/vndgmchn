@@ -61,7 +61,11 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                     <button 
                         key={item.item_id || i}
                         onClick={onItemClick}
-                        className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden text-left hover:shadow-md transition-shadow active:scale-[0.98]"
+                        className="rounded-xl shadow-sm border flex flex-col overflow-hidden text-left hover:shadow-md transition-shadow active:scale-[0.98]"
+                        style={{
+                            backgroundColor: isDefault ? '#ffffff' : (theme?.cardBackground || '#ffffff'),
+                            borderColor: isDefault ? '#e5e7eb' : 'rgba(0,0,0,0.06)',
+                        }}
                     >
                         {/* Image area — dark bg with blurred image behind, matching mobile */}
                         <div
