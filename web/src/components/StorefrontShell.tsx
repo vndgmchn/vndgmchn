@@ -82,6 +82,17 @@ export default function StorefrontShell({ profile, collections, initialCollectio
     const activeCollection = collections.find(c => (c.id || c.collection_id) === activeCollectionId);
     const isInCollection = !!activeCollectionId;
 
+    const totalItems = items.reduce((acc, current) => acc + (current.quantity || 1), 0);
+    const totalMarketValue = items.reduce((acc, current) => {
+        const rawMarketPrice = typeof current.market_price === 'number' ? current.market_price : parseFloat(current.market_price || '0');
+        return acc + (rawMarketPrice * (current.quantity || 1));
+    }, 0);
+    const totalListValue = items.reduce((acc, current) => acc + ((parseFloat(current.listing_price) || 0) * (current.quantity || 1)), 0);
+
+    const formatUsd = (value: number) => {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+    };
+
     return (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-screen bg-[#f2f2f2] dark:bg-[#121212]">
             <style dangerouslySetInnerHTML={{ __html: `header, footer { display: none !important; }` }} />
@@ -186,12 +197,38 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                 </div>
             ) : (
                 <div>
-                    <div className="flex justify-between items-center mb-5">
-                        <div>
-                            <h2 className="text-xl font-bold leading-tight text-gray-900 dark:text-gray-100">{activeCollection?.name}</h2>
-                            <p className="text-xs mt-0.5 text-gray-500 dark:text-gray-400">{items.length} items available</p>
-                        </div>
-                        {loading && <div className="animate-spin h-5 w-5 border-2 rounded-full border-t-transparent border-gray-400 dark:border-gray-500" />}
+                    <div className="flex flex-col items-center text-center mb-8">
+                        <h2 className="text-2xl font-extrabold leading-tight text-gray-900 dark:text-gray-100">{activeCollection?.name}</h2>
+                        {activeCollection?.description && (
+                            <p className="text-sm mt-2 text-gray-500 dark:text-gray-400 max-w-lg">{activeCollection.description}</p>
+                        )}
+                        
+                        {/* Compact Metrics Row */}
+                        {!loading && items.length > 0 && (
+                            <div className="flex flex-row items-center justify-center gap-3 mt-4 text-xs">
+                                <span className="text-gray-500 dark:text-gray-400">
+                                    <span className="font-semibold text-gray-900 dark:text-gray-100">{totalItems}</span> items
+                                </span>
+                                <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-700" />
+                                <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                    <span className="text-[10px] uppercase font-semibold">EST. MKT</span> <span className="font-semibold text-gray-900 dark:text-gray-100">{totalMarketValue > 0 ? formatUsd(totalMarketValue) : '--'}</span>
+                                </span>
+                                <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-700" />
+                                <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                    <span className="text-[10px] uppercase font-semibold">BUY</span> <span className="font-semibold text-gray-900 dark:text-gray-100">{formatUsd(totalListValue)}</span>
+                                    {totalMarketValue > 0 && (() => {
+                                        const percent = (totalListValue / totalMarketValue) * 100;
+                                        let colorClass = "text-gray-500 dark:text-gray-400";
+                                        if (percent < 99.5) colorClass = "text-green-600 dark:text-green-400";
+                                        else if (percent > 100.5) colorClass = "text-red-500 dark:text-red-400";
+                                        return <span className={colorClass}>({percent.toFixed(0)}%)</span>;
+                                    })()}
+                                </span>
+                            </div>
+                        )}
+                        {loading && (
+                            <div className="mt-4 animate-spin h-5 w-5 border-2 rounded-full border-t-transparent border-gray-400 dark:border-gray-500" />
+                        )}
                     </div>
                     <StorefrontGrid items={items} theme={theme} onItemClick={() => setShowDiscoveryModal(true)} />
                 </div>

@@ -10,6 +10,38 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
         return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
 
+    const formatCollectorNumber = (cn: any, total: any) => {
+        if (!cn) return null;
+        if (!total) return `#${cn}`;
+        return `${cn}/${total}`;
+    };
+
+    const displayRarity = (rarity: string | null | undefined) => {
+        if (!rarity) return null;
+        const normalized = rarity.toLowerCase();
+        
+        const abbreviations = {
+            'common': 'C',
+            'uncommon': 'UC',
+            'rare': 'R',
+            'mythic': 'M',
+            'mythic rare': 'M',
+            'secret rare': 'SEC',
+            'ultra rare': 'UR',
+            'double rare': 'RR',
+            'triple rare': 'RRR',
+            'super rare': 'SR',
+            'hyper rare': 'HR',
+            'illustration rare': 'IR',
+            'special illustration rare': 'SIR',
+            'promo': 'PR',
+            'amazing rare': 'AR',
+            'radiant rare': 'RAD'
+        };
+        
+        return abbreviations[normalized as keyof typeof abbreviations] || rarity;
+    };
+
     // UI Colors
     const textColor = isDefault ? '#111827' : theme.textPrimary;
     const priceColor = isDefault ? '#2563eb' : theme.buttonSurface;
@@ -63,13 +95,19 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                         {/* Info */}
                         <div className="w-full flex-1 flex flex-col justify-between p-4 sm:p-5">
                             <div>
-                                <h3 className="font-bold mb-1 truncate text-gray-900 dark:text-gray-100 text-sm sm:text-base" title={item.title}>{item.title}</h3>
-                                {(item.set_name || item.collector_number) && (
-                                    <p className="font-medium mb-1 truncate text-gray-500 dark:text-gray-400 text-xs">
-                                        {item.set_name} {item.collector_number ? `#${item.collector_number}` : ''}
+                                <h3 className="font-bold mb-1 line-clamp-2 text-gray-900 dark:text-gray-100 text-sm sm:text-base" title={item.title}>
+                                    {item.title}{item.language_code === 'JA' ? ' (JP)' : ''}
+                                </h3>
+                                {(item.set_name || item.set_name_en || item.collector_number || item.rarity) && (
+                                    <p className="font-medium mb-1 truncate text-gray-500 dark:text-gray-400 text-[11px] sm:text-xs">
+                                        {[
+                                            item.language_code === 'JA' && item.set_name_en ? item.set_name_en : item.set_name,
+                                            formatCollectorNumber(item.collector_number, item.set_printed_total ?? item.set_total),
+                                            displayRarity(item.rarity)
+                                        ].filter(Boolean).join(' • ')}
                                     </p>
                                 )}
-                                <p className="mb-2 font-medium text-gray-500 dark:text-gray-400 text-xs">Qty: {item.quantity}</p>
+                                <p className="mb-2 font-medium text-gray-500 dark:text-gray-400 text-xs mt-1">Qty: {item.quantity}</p>
                             </div>
                             {/* MKT / BUY footer — matches mobile two-label layout */}
                             <div className="mt-auto flex justify-between items-end w-full">
