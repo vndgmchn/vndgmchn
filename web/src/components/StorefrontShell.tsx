@@ -83,7 +83,8 @@ export default function StorefrontShell({ profile, collections, initialCollectio
     const isInCollection = !!activeCollectionId;
 
     return (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-screen bg-[#f2f2f2] dark:bg-[#121212]">
+            <style dangerouslySetInnerHTML={{ __html: `header, footer { display: none !important; }` }} />
             {/* Header / Profile Card - Persistent */}
             <div
                 className="rounded-2xl shadow-sm border mb-8"
@@ -133,7 +134,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
 
             {/* Content Area - Swaps between Collection List and Items */}
             {!isInCollection ? (
-                <div className="rounded-2xl p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+                <div className="rounded-2xl py-5 bg-[#f2f2f2] dark:bg-[#121212]">
                     <h2 className="text-lg font-bold mb-4 tracking-tight text-gray-900 dark:text-gray-100">Collections</h2>
 
                     {collections.length === 0 ? (
@@ -148,7 +149,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                                 <button
                                     key={col.id || col.collection_id}
                                     onClick={() => setActiveCollection(col.id || col.collection_id)}
-                                    className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 text-left hover:shadow-md transition-all group"
+                                    className="rounded-2xl border border-gray-200 dark:border-[#2c2c2e] bg-white dark:bg-[#1c1c1e] p-5 text-left hover:shadow-md transition-all group"
                                 >
                                     {/* Top row: name + item count badge */}
                                     <div className="flex justify-between items-center mb-2">
@@ -167,7 +168,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                                             {col.preview_items.slice(0, 6).map((p: any, idx: number) => (
                                                 <div
                                                     key={idx}
-                                                    className="w-11 h-16 rounded-lg border border-gray-200 dark:border-gray-800/60 bg-gray-100 dark:bg-gray-800 overflow-hidden flex-shrink-0"
+                                                    className="w-11 h-16 rounded-lg border border-gray-200 dark:border-[#2c2c2e] bg-[#f2f2f2] dark:bg-[#2c2c2e] overflow-hidden flex-shrink-0"
                                                 >
                                                     {p.image_url ? (
                                                         <SafeImage src={p.image_url} alt="" className="w-full h-full object-cover" />
