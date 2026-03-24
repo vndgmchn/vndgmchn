@@ -4,6 +4,8 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { normalizeHandle } from '@/lib/utils';
 import { notFound } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+
 type Props = {
     params: Promise<{
         handle: string;
