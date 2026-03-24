@@ -56,7 +56,7 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                 </button>
             </div>
 
-            <div className={`grid gap-4 sm:gap-6 ${numColumns === 2 ? 'grid-cols-2 sm:grid-cols-2' : 'grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'}`}>
+            <div className={`grid gap-4 sm:gap-6 ${numColumns === 2 ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5' : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6'}`}>
                 {items.map((item: any, i: number) => (
                     <button 
                         key={item.item_id || i}

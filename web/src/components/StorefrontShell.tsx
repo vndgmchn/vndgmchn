@@ -85,7 +85,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
     return (
         <div
             className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-screen"
-            style={{ backgroundColor: isDefault ? '#f9fafb' : (theme.cardBackground ? `${theme.cardBackground}33` : '#f9fafb') }}
+            style={{ backgroundColor: '#f9fafb' }}
         >
             {/* Header / Profile Card - Persistent */}
             <div
@@ -114,7 +114,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                             width: 76,
                             height: 76,
                         }}
-                        className="rounded-full border-4 border-white shadow-md font-bold text-2xl overflow-hidden flex items-center justify-center flex-shrink-0 -mt-10"
+                        className="rounded-full shadow-md font-bold text-2xl overflow-hidden flex items-center justify-center flex-shrink-0"
                     >
                         {profile.avatar_url ? (
                             <img src={profile.avatar_url} alt={profile.handle} className="w-full h-full object-cover" />
@@ -124,16 +124,7 @@ export default function StorefrontShell({ profile, collections, initialCollectio
                     </div>
 
                     {/* Name / Handle / Bio */}
-                    <div className="pt-2 min-w-0">
-                        {isInCollection && (
-                            <button
-                                onClick={() => setActiveCollection(null)}
-                                style={{ color: accentColor as string, backgroundColor: isDefault ? '#eff6ff' : (theme.cardBackground || '#eff6ff') }}
-                                className="inline-flex items-center gap-1 text-xs font-semibold mb-2 px-2 py-1 rounded-full transition-all hover:opacity-75"
-                            >
-                                &#8592; Back to Store
-                            </button>
-                        )}
+                    <div className="py-1 min-w-0 flex flex-col justify-center">
                         <h1 style={{ color: textColor as string }} className="text-xl font-extrabold leading-tight truncate">{profile.display_name || `@${profile.handle}`}</h1>
                         <p style={{ color: mutedTextColor as string }} className="text-sm font-medium">@{profile.handle}</p>
                         {profile.bio && (
