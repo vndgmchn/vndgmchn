@@ -1,5 +1,6 @@
 'use client';
 import { getThemePreset } from '@/constants/storefrontThemes';
+import { convertJpyHeuristic, formatUsd } from '../../../lib/format';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import DiscoveryModal from './DiscoveryModal';
@@ -85,13 +86,10 @@ export default function StorefrontShell({ profile, collections, initialCollectio
     const totalItems = items.reduce((acc, current) => acc + (current.quantity || 1), 0);
     const totalMarketValue = items.reduce((acc, current) => {
         const rawMarketPrice = typeof current.market_price === 'number' ? current.market_price : parseFloat(current.market_price || '0');
-        return acc + (rawMarketPrice * (current.quantity || 1));
+        const convertedPrice = convertJpyHeuristic(rawMarketPrice, current.language_code) || 0;
+        return acc + (convertedPrice * (current.quantity || 1));
     }, 0);
     const totalListValue = items.reduce((acc, current) => acc + ((parseFloat(current.listing_price) || 0) * (current.quantity || 1)), 0);
-
-    const formatUsd = (value: number) => {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-    };
 
     return (
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-screen bg-[#f2f2f2] dark:bg-[#121212]">

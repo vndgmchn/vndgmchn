@@ -1,4 +1,4 @@
-import { convertJpyHeuristic, displayRarity, formatCollectorNumber, formatUsd } from '@/lib/format';
+import { convertJpyHeuristic, displayRarity, formatCollectorNumber, formatSetNumber, formatUsd } from '@/lib/format';
 import EmptyState from '@/components/ui/EmptyState';
 import FilterPill from '@/components/ui/FilterPill';
 import ModalShell from '@/components/ui/ModalShell';
@@ -368,7 +368,7 @@ export default function StorefrontPage() {
                         {(item.collector_number || item.rarity) && (
                             <Text style={[styles.itemMeta, { color: theme.mutedText, fontSize: numColumns === 3 ? 9 : 10, marginTop: 1, marginBottom: 4 }]} numberOfLines={1}>
                                 {[
-                                    formatCollectorNumber(item.collector_number, item.set_printed_total ?? item.set_total),
+                                    formatSetNumber(item.external_id, item.collector_number, item.language_code === 'JA' ? (item.set_name_en ?? item.set_name) : item.set_name, item.set_printed_total, item.set_total),
                                     displayRarity(item.rarity)
                                 ].filter(Boolean).join(' • ')}
                             </Text>
@@ -619,7 +619,7 @@ export default function StorefrontPage() {
                         {(selectedItem.collector_number || selectedItem.rarity) && (
                             <Text style={[styles.modalMeta, { color: theme.mutedText, marginTop: 0, marginBottom: 12 }]}>
                                 {[
-                                    formatCollectorNumber(selectedItem.collector_number, selectedItem.set_printed_total ?? selectedItem.set_total),
+                                    formatSetNumber(selectedItem.external_id, selectedItem.collector_number, selectedItem.language_code === 'JA' ? (selectedItem.set_name_en ?? selectedItem.set_name) : selectedItem.set_name, selectedItem.set_printed_total, selectedItem.set_total),
                                     displayRarity(selectedItem.rarity)
                                 ].filter(Boolean).join(' • ')}
                             </Text>

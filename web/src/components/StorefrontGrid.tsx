@@ -2,45 +2,19 @@
 
 import SafeImage from './SafeImage';
 import { StorefrontTheme } from '@/constants/storefrontThemes';
+import React from 'react';
+import { formatSetNumber, convertJpyHeuristic, displayRarity, formatUsd } from '../../../lib/format';
 
-export default function StorefrontGrid({ items, theme, onItemClick }: { items: any[], theme?: StorefrontTheme, onItemClick?: () => void }) {
+interface StorefrontGridProps {
+    items: any[];
+    theme?: StorefrontTheme;
+    onItemClick?: () => void;
+}
+
+export default function StorefrontGrid({ items, theme, onItemClick }: StorefrontGridProps) {
     const isDefault = !theme || theme.id === 'default';
 
-    const formatCurrency = (amount: number) => {
-        return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    };
-
-    const formatCollectorNumber = (cn: any, total: any) => {
-        if (!cn) return null;
-        if (!total) return `#${cn}`;
-        return `${cn}/${total}`;
-    };
-
-    const displayRarity = (rarity: string | null | undefined) => {
-        if (!rarity) return null;
-        const normalized = rarity.toLowerCase();
-        
-        const abbreviations = {
-            'common': 'C',
-            'uncommon': 'UC',
-            'rare': 'R',
-            'mythic': 'M',
-            'mythic rare': 'M',
-            'secret rare': 'SEC',
-            'ultra rare': 'UR',
-            'double rare': 'RR',
-            'triple rare': 'RRR',
-            'super rare': 'SR',
-            'hyper rare': 'HR',
-            'illustration rare': 'IR',
-            'special illustration rare': 'SIR',
-            'promo': 'PR',
-            'amazing rare': 'AR',
-            'radiant rare': 'RAD'
-        };
-        
-        return abbreviations[normalized as keyof typeof abbreviations] || rarity;
-    };
+    // Utilities imported from shared lib
 
     // UI Colors
     const textColor = isDefault ? '#111827' : theme.textPrimary;
@@ -106,7 +80,7 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                                 {(item.collector_number || item.rarity) && (
                                     <p className="font-medium mb-1 truncate text-gray-500 dark:text-gray-400 text-[11px] sm:text-xs">
                                         {[
-                                            formatCollectorNumber(item.collector_number, item.set_printed_total ?? item.set_total),
+                                            formatSetNumber(item.external_id, item.collector_number, item.language_code === 'JA' ? (item.set_name_en ?? item.set_name) : item.set_name, item.set_printed_total, item.set_total),
                                             displayRarity(item.rarity)
                                         ].filter(Boolean).join(' • ')}
                                     </p>
@@ -119,7 +93,7 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                                     ) : (item.is_graded ? (item.grading_company && item.grade !== null) : item.condition) ? (
                                         <div className="bg-gray-200 dark:bg-gray-800 px-1.5 py-0.5 rounded mr-0.5">
                                             <span className="text-[9px] sm:text-[10px] text-gray-800 dark:text-gray-300 font-bold leading-none block">
-                                                {item.is_graded ? `${item.grading_company} ${item.grade}` : item.condition}
+                                                {item.is_graded ? (item.grading_company + ' ' + item.grade) : item.condition}
                                             </span>
                                         </div>
                                     ) : null}
@@ -131,13 +105,13 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                                 <div>
                                     <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">MKT</p>
                                     <span className="font-medium text-gray-500 dark:text-gray-400 text-sm">
-                                        {item.market_price ? `$${parseFloat(item.market_price).toFixed(2)}` : '—'}
+                                        {item.market_price && parseFloat(item.market_price || '0') > 0 ? formatUsd(convertJpyHeuristic(typeof item.market_price === 'number' ? item.market_price : parseFloat(item.market_price), item.language_code)) : '—'}
                                     </span>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[10px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">BUY</p>
                                     <span className="font-extrabold text-blue-600 dark:text-blue-400 text-lg sm:text-xl">
-                                        ${parseFloat(item.listing_price || 0).toFixed(2)}
+                                        {formatUsd(typeof item.listing_price === 'number' ? item.listing_price : parseFloat(item.listing_price || '0'))}
                                     </span>
                                 </div>
                             </div>
