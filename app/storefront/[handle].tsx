@@ -360,18 +360,22 @@ export default function StorefrontPage() {
                                 {item.title}{item.language_code === 'JA' ? ' (JP)' : ''}
                             </Text>
                         </View>
-                        {(item.set_name || item.set_name_en || item.collector_number || item.rarity) && (
-                            <Text style={[styles.itemMeta, { color: theme.mutedText, fontSize: numColumns === 3 ? 9 : 10, marginTop: 2, marginBottom: 4 }]} numberOfLines={1}>
+                        {(item.set_name || item.set_name_en) && (
+                            <Text style={[styles.itemMeta, { color: theme.mutedText, fontSize: numColumns === 3 ? 9 : 10, marginTop: 2, marginBottom: 0 }]} numberOfLines={1}>
+                                {item.language_code === 'JA' && item.set_name_en ? item.set_name_en : item.set_name}
+                            </Text>
+                        )}
+                        {(item.collector_number || item.rarity) && (
+                            <Text style={[styles.itemMeta, { color: theme.mutedText, fontSize: numColumns === 3 ? 9 : 10, marginTop: 1, marginBottom: 4 }]} numberOfLines={1}>
                                 {[
-                                    item.language_code === 'JA' && item.set_name_en ? item.set_name_en : item.set_name,
                                     formatCollectorNumber(item.collector_number, item.set_printed_total ?? item.set_total),
                                     displayRarity(item.rarity)
                                 ].filter(Boolean).join(' • ')}
                             </Text>
                         )}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 1, flexWrap: 'wrap' }}>
                             <StorefrontItemBadge item={item} theme={theme} size="sm" />
-                            <Text style={[styles.itemMeta, { color: theme.mutedText, fontSize: numColumns === 3 ? 10 : 11, marginTop: 0 }]}>Qty: {item.quantity}</Text>
+                            <Text style={[styles.itemMeta, { color: theme.mutedText, fontSize: numColumns === 3 ? 10 : 11, marginTop: 0, fontWeight: 'bold' }]}>×{item.quantity}</Text>
                         </View>
                     </View>
                     <View style={styles.itemFooter}>

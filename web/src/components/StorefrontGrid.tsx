@@ -98,16 +98,33 @@ export default function StorefrontGrid({ items, theme, onItemClick }: { items: a
                                 <h3 className="font-bold mb-1 line-clamp-2 text-gray-900 dark:text-gray-100 text-sm sm:text-base" title={item.title}>
                                     {item.title}{item.language_code === 'JA' ? ' (JP)' : ''}
                                 </h3>
-                                {(item.set_name || item.set_name_en || item.collector_number || item.rarity) && (
+                                {(item.set_name || item.set_name_en) && (
+                                    <p className="font-medium mb-0 truncate text-gray-500 dark:text-gray-400 text-[11px] sm:text-xs">
+                                        {item.language_code === 'JA' && item.set_name_en ? item.set_name_en : item.set_name}
+                                    </p>
+                                )}
+                                {(item.collector_number || item.rarity) && (
                                     <p className="font-medium mb-1 truncate text-gray-500 dark:text-gray-400 text-[11px] sm:text-xs">
                                         {[
-                                            item.language_code === 'JA' && item.set_name_en ? item.set_name_en : item.set_name,
                                             formatCollectorNumber(item.collector_number, item.set_printed_total ?? item.set_total),
                                             displayRarity(item.rarity)
                                         ].filter(Boolean).join(' • ')}
                                     </p>
                                 )}
-                                <p className="mb-2 font-medium text-gray-500 dark:text-gray-400 text-xs mt-1">Qty: {item.quantity}</p>
+                                <div className="flex flex-row items-center mt-1 flex-wrap gap-1 mb-2">
+                                    {item.kind === 'SEALED' ? (
+                                        <div className="bg-[#10b981] px-1.5 py-0.5 rounded mr-0.5">
+                                            <span className="text-[9px] sm:text-[10px] text-white font-bold leading-none block">SEALED</span>
+                                        </div>
+                                    ) : (item.is_graded ? (item.grading_company && item.grade !== null) : item.condition) ? (
+                                        <div className="bg-gray-200 dark:bg-gray-800 px-1.5 py-0.5 rounded mr-0.5">
+                                            <span className="text-[9px] sm:text-[10px] text-gray-800 dark:text-gray-300 font-bold leading-none block">
+                                                {item.is_graded ? `${item.grading_company} ${item.grade}` : item.condition}
+                                            </span>
+                                        </div>
+                                    ) : null}
+                                    <p className="font-bold text-gray-500 dark:text-gray-400 text-[11px] sm:text-xs leading-none ml-0.5">×{item.quantity}</p>
+                                </div>
                             </div>
                             {/* MKT / BUY footer — matches mobile two-label layout */}
                             <div className="mt-auto flex justify-between items-end w-full">
