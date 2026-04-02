@@ -1,0 +1,30 @@
+name: Daily Scrydex Top-Off Ingest
+
+on:
+  schedule:
+    - cron: '0 8 * * *' # Runs every day at 08:00 UTC
+  workflow_dispatch: # Allows you to run it manually from the GitHub UI
+
+jobs:
+  run-topoff:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      - name: Run Top-Off Ingest Script
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SCRYDEX_API_KEY: ${{ secrets.SCRYDEX_API_KEY }}
+          SCRYDEX_TEAM_ID: ${{ secrets.SCRYDEX_TEAM_ID }}
+        run: node scripts/ingestScrydexMetadata.mjs --maxPagesPerEndpoint 2
