@@ -1,66 +1,37 @@
-import { useThemeColors } from '@/hooks/useThemeColors';
+import AddToCollectionSheet from '@/components/inventory/AddToCollectionSheet';
+import CollectionFormSheet from '@/components/inventory/CollectionFormSheet';
+import CollectionPickerSheet from '@/components/inventory/CollectionPickerSheet';
+import InventoryChip from '@/components/inventory/InventoryChip';
+import { getItemDisplay } from '@/components/inventory/itemDisplay';
+import ItemFormSheet from '@/components/inventory/ItemFormSheet';
+import QuickSellSheet from '@/components/inventory/QuickSellSheet';
+import SortFilterSheet from '@/components/inventory/SortFilterSheet';
+import type { Collection, CollectionVisibility, InventoryItem } from '@/components/inventory/types';
 import EmptyState from '@/components/ui/EmptyState';
 import FilterPill from '@/components/ui/FilterPill';
-import ModalShell from '@/components/ui/ModalShell';
 import SearchBar from '@/components/ui/SearchBar';
-import { convertToUsd, displayRarity, formatCollectorNumber, formatRelativeTime, formatUsd, formatSetNumber } from '@/lib/format';
+import { HitSlop } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useThemeColors';
+import { convertToUsd, formatSetNumber, formatUsd } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActionSheetIOS, ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
-type InventoryItem = {
-    id: string;
-    owner_id: string;
-    title: string;
-    quantity: number;
-    listing_price: number;
-    status: 'FOR_SALE' | 'PENDING' | 'RESERVED' | 'SOLD' | 'PERSONAL';
-    sold_price: number | null;
-    cost_basis: number | null;
-    catalog_product_id?: string | null;
-    game?: string | null;
-    condition?: string | null;
-    is_graded?: boolean | null;
-    grading_company?: string | null;
-    grade?: number | null;
-    catalog_products?: {
-        external_id?: string | null;
-        image_url?: string | null;
-        set_name?: string | null;
-        set_name_en?: string | null;
-        collector_number?: string | null;
-        set_total?: number | null;
-        set_printed_total?: number | null;
-        rarity?: string | null;
-        language_code?: string | null;
-        kind?: string | null;
-        tcgplayer_url?: string | null;
-        catalog_prices_current?: {
-            market_price: number;
-            currency?: string | null;
-            source?: string | null;
-            last_updated?: string | null;
-        } | null;
-    } | null;
-};
-
-
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { ActionSheetIOS, ActivityIndicator, Alert, FlatList, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function InventoryScreen() {
     const theme = useThemeColors();
+    const insets = useSafeAreaInsets();
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
 
-    const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
     const didAutoRefreshRef = useRef(false);
 
     // Collections Phase 2A State
-    const [collections, setCollections] = useState<any[]>([]);
+    const [collections, setCollections] = useState<Collection[]>([]);
     const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
     const [collectionModalVisible, setCollectionModalVisible] = useState(false);
     
@@ -69,10 +40,10 @@ export default function InventoryScreen() {
 
     // Collections Phase 3A State
     const [collectionFormVisible, setCollectionFormVisible] = useState(false);
-    const [editingCollection, setEditingCollection] = useState<any | null>(null);
+    const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
     const [collectionName, setCollectionName] = useState('');
     const [collectionDescription, setCollectionDescription] = useState('');
-    const [collectionVisibility, setCollectionVisibility] = useState<'private' | 'unlisted' | 'public'>('private');
+    const [collectionVisibility, setCollectionVisibility] = useState<CollectionVisibility>('private');
     const [savingCollection, setSavingCollection] = useState(false);
 
     // Collections Phase 3B State
@@ -83,6 +54,7 @@ export default function InventoryScreen() {
 
     const [filter, setFilter] = useState<'ACTIVE' | 'SOLD'>('ACTIVE');
     const [viewMode, setViewMode] = useState<'list' | 'grid' | 'binder'>('list');
+    const [sortBy, setSortBy] = useState<'RECENT' | 'OLDEST' | 'PRICE_HIGH_LOW' | 'PRICE_LOW_HIGH' | 'NAME_AZ'>('RECENT');
 
     // Restore persisted view mode and sort mode on mount
     useEffect(() => {
@@ -97,7 +69,6 @@ export default function InventoryScreen() {
             }
         });
     }, []);
-    const [sortBy, setSortBy] = useState<'RECENT' | 'OLDEST' | 'PRICE_HIGH_LOW' | 'PRICE_LOW_HIGH' | 'NAME_AZ'>('RECENT');
     const [searchQuery, setSearchQuery] = useState('');
     const [sortModalVisible, setSortModalVisible] = useState(false);
 
@@ -153,23 +124,12 @@ export default function InventoryScreen() {
     const [costBasis, setCostBasis] = useState('');
     const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        supabase.auth.getUser().then(({ data: { user } }) => {
-            if (user) {
-                setUserId(user.id);
-                didAutoRefreshRef.current = false;
-                fetchInventory(user.id);
-                fetchCollections();
-            }
-        });
-    }, []);
-
     const fetchCollections = async () => {
         const { data, error } = await supabase.rpc('get_my_collections');
         if (!error && data) {
             setCollections(data);
             AsyncStorage.getItem('inventory_selected_collection_id').then(saved => {
-                if (saved && data.some((c: any) => c.id === saved)) {
+                if (saved && data.some((c: Collection) => c.id === saved)) {
                     setSelectedCollectionId(saved);
                 }
             });
@@ -193,6 +153,8 @@ export default function InventoryScreen() {
         if (selectedCatalogProduct) {
             try {
                 const product = JSON.parse(selectedCatalogProduct);
+                // Route param from Search prefills the Add modal; this is a one-shot navigation event.
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setEditingItem(null);
                 setTitle(product.title || '');
                 const defaultUsd = (typeof product.market_price === 'number')
@@ -267,7 +229,6 @@ export default function InventoryScreen() {
         }
 
         if (!error && data) {
-            console.log(`[Inventory] Returned ${data.length} rows for user "${uid}"`);
             setItems(current => {
                 return (data as InventoryItem[]).map(newItem => {
                     const existing = current.find(c => c.id === newItem.id);
@@ -295,7 +256,6 @@ export default function InventoryScreen() {
 
                 if (productIdsToRefresh.length > 0) {
                     didAutoRefreshRef.current = true;
-                    setIsUpdatingPrices(true);
 
                     supabase.functions.invoke('scrydex-refresh-products', {
                         body: { productIds: productIdsToRefresh }
@@ -303,14 +263,27 @@ export default function InventoryScreen() {
                         return fetchInventory(uid, true);
                     }).catch(err => {
                         console.error("Auto-refresh failed:", err);
-                    }).finally(() => {
-                        setIsUpdatingPrices(false);
                     });
                 }
             }
         }
         if (!isSilent) setLoading(false);
     };
+
+    const loadInitialData = useEffectEvent(() => {
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+                setUserId(user.id);
+                didAutoRefreshRef.current = false;
+                fetchInventory(user.id);
+                fetchCollections();
+            }
+        });
+    });
+
+    useEffect(() => {
+        loadInitialData();
+    }, []);
 
     const handleSaveItem = async () => {
         if (!userId || !title || !listingPrice) {
@@ -545,34 +518,37 @@ export default function InventoryScreen() {
             slug: slug || 'collection',
         };
 
+        let saveError: { message: string } | null = null;
         if (editingCollection) {
             const { error } = await supabase
                 .from('collections')
                 .update(collectionData)
                 .eq('id', editingCollection.id);
-
-            if (error) Alert.alert('Error', error.message);
+            saveError = error;
         } else {
             const { data, error } = await supabase
                 .from('collections')
                 .insert([collectionData])
                 .select()
                 .single();
-
-            if (error) {
-                Alert.alert('Error', error.message);
-            } else if (data) {
+            saveError = error;
+            if (!error && data) {
                 setSelectedCollectionId(data.id);
                 AsyncStorage.setItem('inventory_selected_collection_id', data.id);
             }
         }
 
         setSavingCollection(false);
+        if (saveError) {
+            // Keep the form open so the user doesn't lose their input.
+            Alert.alert('Error', saveError.message);
+            return;
+        }
         setCollectionFormVisible(false);
         fetchCollections();
     };
 
-    const promptDeleteCollection = async (collection: any) => {
+    const promptDeleteCollection = async (collection: Collection) => {
         setLoading(true);
         const { data, error } = await supabase.rpc('get_collection_delete_summary', { p_collection_id: collection.id });
         setLoading(false);
@@ -1012,41 +988,13 @@ export default function InventoryScreen() {
     };
 
     const renderItem = ({ item }: { item: InventoryItem }) => {
-        const pricesPayload = item.catalog_products?.catalog_prices_current;
-        const marketPrice = Array.isArray(pricesPayload) ? pricesPayload[0]?.market_price : pricesPayload?.market_price;
-        const currency = Array.isArray(pricesPayload) ? pricesPayload[0]?.currency : pricesPayload?.currency;
-        const source = Array.isArray(pricesPayload) ? pricesPayload[0]?.source : pricesPayload?.source;
-        const lastUpdated = Array.isArray(pricesPayload) ? pricesPayload[0]?.last_updated : pricesPayload?.last_updated;
-
-        const usdMarketPrice = typeof marketPrice === 'number' ? convertToUsd(marketPrice, currency) : null;
-
-        let marketLabel = 'MKT';
-        if (source === 'TCGCSV') marketLabel = 'TCG';
-        if (source === 'SCRYDEX') marketLabel = 'SCR';
+        const { imageUrl, marketPrice, currency, marketLabel, condition, isJapanese, isSealed, isSold, setNameDisplay, metaLine, priceLabel, displayPrice } = getItemDisplay(item);
 
         let unrealizedStr = null;
         if (item.cost_basis !== null && item.status !== 'SOLD' && item.listing_price > 0) {
             const profit = (item.listing_price - item.cost_basis) * item.quantity;
             unrealizedStr = `Unrealized: ${profit.toFixed(2)}`;
         }
-
-        const imageUrl = item.catalog_products?.image_url;
-        const prod = item.catalog_products; // Alias for brevity
-
-        let condition = null;
-        if (item.is_graded) {
-            condition = item.grading_company && item.grade !== null && item.grade !== undefined
-                ? `${item.grading_company} ${item.grade}`
-                : (item as any).grade;
-        } else {
-            condition = (item as any).condition || (item as any).condition_label;
-        }
-
-        const setNameDisplay = prod?.language_code === 'JA' ? (prod?.set_name_en ?? prod?.set_name) : (prod?.set_name || 'Unknown Set');
-        const setNameOriginal = prod?.language_code === 'JA' ? (prod?.set_name_en ?? prod?.set_name) : prod?.set_name;
-        const setNumber = formatSetNumber(prod?.external_id, prod?.collector_number, setNameOriginal, prod?.set_printed_total, prod?.set_total);
-        const rarity = prod?.language_code === 'JA' ? displayRarity(prod?.rarity) : (prod?.rarity || null);
-        const metaLine = [setNumber, rarity].filter(Boolean).join(' • ');
 
         const isSelected = selectedItemIds.includes(item.id);
 
@@ -1086,7 +1034,6 @@ export default function InventoryScreen() {
                             source={{ uri: imageUrl }}
                             style={{ width: '100%', height: '100%' }}
                             resizeMode="contain"
-                            defaultSource={{ uri: 'https://via.placeholder.com/60x84?text=No+Image' }}
                         />
                     ) : (
                         <Ionicons name="image-outline" size={20} color={theme.mutedText} />
@@ -1103,11 +1050,7 @@ export default function InventoryScreen() {
                             <Text style={[{ color: theme.text, fontSize: 14, fontWeight: 'bold', marginRight: 6, flexShrink: 1 }]} numberOfLines={1}>
                                 {item.title}
                             </Text>
-                            {prod?.language_code === 'JA' && (
-                                <View style={{ backgroundColor: theme.border, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 }}>
-                                    <Text style={{ fontSize: 9, color: theme.text, fontWeight: 'bold' }}>JP</Text>
-                                </View>
-                            )}
+                            {isJapanese && <InventoryChip label="JP" />}
                         </View>
 
                         {/* 2. Set Name */}
@@ -1135,28 +1078,22 @@ export default function InventoryScreen() {
                         })()}
 
                         {/* 4. CHIPS ROW */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
-                            {prod?.kind === 'SEALED' ? (
-                                <View style={{ backgroundColor: theme.sealed, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, marginRight: 4 }}>
-                                    <Text style={{ fontSize: 9, color: '#fff', fontWeight: 'bold' }}>SEALED</Text>
-                                </View>
-                            ) : condition && (
-                                <View style={{ backgroundColor: theme.border, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4, marginRight: 4 }}>
-                                    <Text style={{ fontSize: 9, color: theme.text, fontWeight: 'bold' }}>{condition}</Text>
-                                </View>
-                            )}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap', gap: 4 }}>
+                            {isSealed ? (
+                                <InventoryChip label="SEALED" tone="sealed" />
+                            ) : condition ? (
+                                <InventoryChip label={condition} />
+                            ) : null}
                             {item.quantity > 1 && (
-                                <Text style={{ fontSize: 11, color: theme.mutedText, fontWeight: 'bold', marginRight: 4 }}>×{item.quantity}</Text>
+                                <Text style={{ fontSize: 11, color: theme.mutedText, fontWeight: 'bold' }}>×{item.quantity}</Text>
                             )}
                             {item.status !== 'FOR_SALE' && (
-                                <View style={[styles.badge, { backgroundColor: item.status === 'SOLD' ? '#d1e7dd' : theme.border, margin: 0, paddingHorizontal: 4, paddingVertical: 1 }]}>
-                                    <Text style={[styles.badgeText, { color: item.status === 'SOLD' ? '#0f5132' : theme.text, fontSize: 9 }]}>{item.status}</Text>
-                                </View>
+                                <InventoryChip label={item.status} tone={isSold ? 'sold' : 'neutral'} />
                             )}
                         </View>
 
                         {unrealizedStr && (
-                            <Text style={{ fontSize: 10, color: '#10b981', marginTop: 2, fontWeight: '500' }}>
+                            <Text style={{ fontSize: 10, color: theme.success, marginTop: 2, fontWeight: '500' }}>
                                 {unrealizedStr}
                             </Text>
                         )}
@@ -1168,6 +1105,9 @@ export default function InventoryScreen() {
                         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                             <TouchableOpacity
                                 style={{ padding: 2, opacity: openingId === item.catalog_product_id && item.catalog_product_id ? 0.5 : 1 }}
+                                hitSlop={HitSlop}
+                                accessibilityRole="link"
+                                accessibilityLabel="Open on TCGplayer"
                                 onPress={(e) => {
                                     e.stopPropagation();
                                     handleOpenTcgPlayer(item);
@@ -1176,7 +1116,7 @@ export default function InventoryScreen() {
                             >
                                 <Ionicons name="open-outline" size={16} color={theme.mutedText} />
                             </TouchableOpacity>
-                            <TouchableOpacity style={{ marginLeft: 4, padding: 2 }} onPress={(e) => {
+                            <TouchableOpacity style={{ marginLeft: 8, padding: 2 }} hitSlop={HitSlop} accessibilityRole="button" accessibilityLabel="Item actions" onPress={(e) => {
                                 e.stopPropagation();
                                 openActionMenu(item);
                             }}>
@@ -1194,11 +1134,11 @@ export default function InventoryScreen() {
                             </View>
 
                             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={{ fontSize: 9, color: item.status === 'SOLD' ? '#10b981' : theme.mutedText, marginRight: 4, fontWeight: 'bold' }}>
-                                    {item.status === 'SOLD' ? 'SOLD' : 'YOU'} {item.quantity > 1 ? '(ea)' : ''}
+                                <Text style={{ fontSize: 9, color: isSold ? theme.success : theme.mutedText, marginRight: 4, fontWeight: 'bold' }}>
+                                    {priceLabel}
                                 </Text>
-                                <Text style={{ color: item.status === 'SOLD' ? '#10b981' : theme.primary, fontSize: 14, fontWeight: 'bold' }}>
-                                    {formatUsd(item.status === 'SOLD' && item.sold_price !== null ? item.sold_price : item.listing_price)}
+                                <Text style={{ color: isSold ? theme.success : theme.primary, fontSize: 14, fontWeight: 'bold' }}>
+                                    {formatUsd(displayPrice)}
                                 </Text>
                             </View>
                         </View>
@@ -1209,32 +1149,7 @@ export default function InventoryScreen() {
     };
 
     const renderGridItem = ({ item }: { item: InventoryItem }) => {
-        const pricesPayload = item.catalog_products?.catalog_prices_current;
-        const marketPrice = Array.isArray(pricesPayload) ? pricesPayload[0]?.market_price : pricesPayload?.market_price;
-        const currency = Array.isArray(pricesPayload) ? pricesPayload[0]?.currency : pricesPayload?.currency;
-        const source = Array.isArray(pricesPayload) ? pricesPayload[0]?.source : pricesPayload?.source;
-
-        let marketLabel = 'MKT';
-        if (source === 'TCGCSV') marketLabel = 'TCG';
-        if (source === 'SCRYDEX') marketLabel = 'SCR';
-
-        const imageUrl = item.catalog_products?.image_url;
-        const prod = item.catalog_products;
-
-        let condition = null;
-        if (item.is_graded) {
-            condition = item.grading_company && item.grade !== null && item.grade !== undefined
-                ? `${item.grading_company} ${item.grade}`
-                : (item as any).grade;
-        } else {
-            condition = (item as any).condition || (item as any).condition_label;
-        }
-
-        const setNameOriginal = prod?.language_code === 'JA' ? (prod?.set_name_en ?? prod?.set_name) : prod?.set_name;
-        const setNameDisplay = prod?.language_code === 'JA' ? (prod?.set_name_en ?? prod?.set_name) : (prod?.set_name || 'Unknown Set');
-        const setNumber = formatSetNumber(prod?.external_id, prod?.collector_number, setNameOriginal, prod?.set_printed_total, prod?.set_total);
-        const rarity = prod?.language_code === 'JA' ? displayRarity(prod?.rarity) : (prod?.rarity || null);
-        const metaLine = [setNumber, rarity].filter(Boolean).join(' • ');
+        const { imageUrl, marketPrice, currency, marketLabel, condition, isJapanese, isSealed, isSold, setNameDisplay, setNumber, metaLine, priceLabel, displayPrice } = getItemDisplay(item);
 
         const isSelected = selectedItemIds.includes(item.id);
 
@@ -1270,6 +1185,9 @@ export default function InventoryScreen() {
                 {/* Ellipsis Action (Top Right) */}
                 <TouchableOpacity
                     style={{ position: 'absolute', top: 6, right: 6, zIndex: 10, width: 22, height: 22, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.surface, borderRadius: 11, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.border }}
+                    hitSlop={HitSlop}
+                    accessibilityRole="button"
+                    accessibilityLabel="Item actions"
                     onPress={(e) => {
                         e.stopPropagation();
                         openActionMenu(item);
@@ -1285,7 +1203,6 @@ export default function InventoryScreen() {
                             source={{ uri: imageUrl }}
                             style={{ width: '100%', height: '100%' }}
                             resizeMode="contain"
-                            defaultSource={{ uri: 'https://via.placeholder.com/150x210?text=No+Image' }}
                         />
                     ) : (
                         <Ionicons name="image-outline" size={32} color={theme.mutedText} />
@@ -1298,9 +1215,9 @@ export default function InventoryScreen() {
                         <Text style={{ color: theme.text, fontSize: 12, fontWeight: 'bold', flexShrink: 1 }} numberOfLines={1}>
                             {item.title}
                         </Text>
-                        {prod?.language_code === 'JA' && (
-                            <View style={{ backgroundColor: theme.border, paddingHorizontal: 3, paddingVertical: 1, borderRadius: 4, marginLeft: 4 }}>
-                                <Text style={{ fontSize: 8, color: theme.text, fontWeight: 'bold' }}>JP</Text>
+                        {isJapanese && (
+                            <View style={{ marginLeft: 4 }}>
+                                <InventoryChip label="JP" size="sm" />
                             </View>
                         )}
                     </View>
@@ -1328,25 +1245,15 @@ export default function InventoryScreen() {
                     })()}
 
                     {/* Condition / Grade / Quantity Line */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
-                        {prod?.kind === 'SEALED' ? (
-                            <View style={{ backgroundColor: theme.sealed, paddingHorizontal: 3, paddingVertical: 1, borderRadius: 4, marginRight: 4 }}>
-                                <Text style={{ fontSize: 8, color: '#fff', fontWeight: 'bold' }}>SEALED</Text>
-                            </View>
-                        ) : condition && (
-                            <View style={{ backgroundColor: theme.border, paddingHorizontal: 3, paddingVertical: 1, borderRadius: 4, marginRight: 4 }}>
-                                <Text style={{ fontSize: 8, color: theme.text, fontWeight: 'bold' }}>{condition}</Text>
-                            </View>
-                        )}
-                        {item.quantity > 1 && (
-                            <View style={{ backgroundColor: theme.border, paddingHorizontal: 3, paddingVertical: 1, borderRadius: 4, marginRight: 4 }}>
-                                <Text style={{ fontSize: 8, color: theme.text, fontWeight: 'bold' }}>x{item.quantity}</Text>
-                            </View>
-                        )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', gap: 4 }}>
+                        {isSealed ? (
+                            <InventoryChip label="SEALED" tone="sealed" size="sm" />
+                        ) : condition ? (
+                            <InventoryChip label={condition} size="sm" />
+                        ) : null}
+                        {item.quantity > 1 && <InventoryChip label={`x${item.quantity}`} size="sm" />}
                         {item.status !== 'FOR_SALE' && (
-                            <View style={{ backgroundColor: item.status === 'SOLD' ? '#d1e7dd' : theme.border, paddingHorizontal: 3, paddingVertical: 1, borderRadius: 4, marginRight: 4 }}>
-                                <Text style={{ fontSize: 8, color: item.status === 'SOLD' ? '#0f5132' : theme.text, fontWeight: 'bold' }}>{item.status}</Text>
-                            </View>
+                            <InventoryChip label={item.status} tone={isSold ? 'sold' : 'neutral'} size="sm" />
                         )}
                     </View>
 
@@ -1360,11 +1267,11 @@ export default function InventoryScreen() {
                         </View>
 
                         <View style={{ alignItems: 'flex-end', flexShrink: 1 }}>
-                            <Text style={{ fontSize: 9, color: item.status === 'SOLD' ? '#10b981' : theme.mutedText, fontWeight: 'bold', marginBottom: 1 }}>
-                                {item.status === 'SOLD' ? 'SOLD' : 'YOU'} {item.quantity > 1 ? '(ea)' : ''}
+                            <Text style={{ fontSize: 9, color: isSold ? theme.success : theme.mutedText, fontWeight: 'bold', marginBottom: 1 }}>
+                                {priceLabel}
                             </Text>
-                            <Text style={{ color: item.status === 'SOLD' ? '#10b981' : theme.primary, fontSize: 13, fontWeight: 'bold' }} numberOfLines={1} adjustsFontSizeToFit>
-                                {formatUsd(item.status === 'SOLD' && item.sold_price !== null ? item.sold_price : item.listing_price)}
+                            <Text style={{ color: isSold ? theme.success : theme.primary, fontSize: 13, fontWeight: 'bold' }} numberOfLines={1} adjustsFontSizeToFit>
+                                {formatUsd(displayPrice)}
                             </Text>
                         </View>
                     </View>
@@ -1374,21 +1281,7 @@ export default function InventoryScreen() {
     };
 
     const renderBinderItem = ({ item }: { item: InventoryItem }) => {
-        const pricesPayload = item.catalog_products?.catalog_prices_current;
-        const marketPrice = Array.isArray(pricesPayload) ? pricesPayload[0]?.market_price : pricesPayload?.market_price;
-        const currency = Array.isArray(pricesPayload) ? pricesPayload[0]?.currency : pricesPayload?.currency;
-
-        const imageUrl = item.catalog_products?.image_url;
-        const prod = item.catalog_products;
-
-        let condition = null;
-        if (item.is_graded) {
-            condition = item.grading_company && item.grade !== null && item.grade !== undefined
-                ? `${item.grading_company} ${item.grade}`
-                : (item as any).grade;
-        } else {
-            condition = (item as any).condition || (item as any).condition_label;
-        }
+        const { imageUrl, marketPrice, currency, condition, isSealed, isSold, priceLabel, displayPrice } = getItemDisplay(item);
 
         const isSelected = selectedItemIds.includes(item.id);
 
@@ -1424,6 +1317,9 @@ export default function InventoryScreen() {
                 {/* Ellipsis Action (Top Right) */}
                 <TouchableOpacity
                     style={{ position: 'absolute', top: 4, right: 4, zIndex: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.surface, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, borderColor: theme.border }}
+                    hitSlop={HitSlop}
+                    accessibilityRole="button"
+                    accessibilityLabel="Item actions"
                     onPress={(e) => {
                         e.stopPropagation();
                         openActionMenu(item);
@@ -1439,7 +1335,6 @@ export default function InventoryScreen() {
                             source={{ uri: imageUrl }}
                             style={{ width: '100%', height: '100%' }}
                             resizeMode="contain"
-                            defaultSource={{ uri: 'https://via.placeholder.com/150x210?text=No+Image' }}
                         />
                     ) : (
                         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -1457,24 +1352,14 @@ export default function InventoryScreen() {
 
                     {/* Condition / Grade / Quantity Line */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, flexWrap: 'wrap', gap: 2 }}>
-                        {prod?.kind === 'SEALED' ? (
-                            <View style={{ backgroundColor: theme.sealed, paddingHorizontal: 2, paddingVertical: 0, borderRadius: 2 }}>
-                                <Text style={{ fontSize: 6, color: '#fff', fontWeight: 'bold' }}>SEALED</Text>
-                            </View>
-                        ) : condition && (
-                            <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 2, paddingVertical: 0, borderRadius: 2 }}>
-                                <Text style={{ fontSize: 6, color: '#fff', fontWeight: 'bold' }}>{condition}</Text>
-                            </View>
-                        )}
-                        {item.quantity > 1 && (
-                            <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 2, paddingVertical: 0, borderRadius: 2 }}>
-                                <Text style={{ fontSize: 6, color: '#fff', fontWeight: 'bold' }}>x{item.quantity}</Text>
-                            </View>
-                        )}
+                        {isSealed ? (
+                            <InventoryChip label="SEALED" tone="sealed" size="xs" onImage />
+                        ) : condition ? (
+                            <InventoryChip label={condition} size="xs" onImage />
+                        ) : null}
+                        {item.quantity > 1 && <InventoryChip label={`x${item.quantity}`} size="xs" onImage />}
                         {item.status !== 'FOR_SALE' && (
-                            <View style={{ backgroundColor: item.status === 'SOLD' ? '#d1e7dd' : 'rgba(255,255,255,0.2)', paddingHorizontal: 2, paddingVertical: 0, borderRadius: 2 }}>
-                                <Text style={{ fontSize: 6, color: item.status === 'SOLD' ? '#0f5132' : '#fff', fontWeight: 'bold' }}>{item.status}</Text>
-                            </View>
+                            <InventoryChip label={item.status} tone={isSold ? 'sold' : 'neutral'} size="xs" onImage />
                         )}
                     </View>
 
@@ -1482,7 +1367,7 @@ export default function InventoryScreen() {
                         const label = getMembershipLabel(item);
                         if (label) {
                             return (
-                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 7, marginBottom: 2, fontStyle: 'italic' }} numberOfLines={1}>
+                                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 8, marginBottom: 2, fontStyle: 'italic' }} numberOfLines={1}>
                                     {label}
                                 </Text>
                             );
@@ -1496,11 +1381,11 @@ export default function InventoryScreen() {
                             {formatUsd(convertToUsd(marketPrice, currency))}
                         </Text>
                         <View style={{ alignItems: 'flex-end' }}>
-                            <Text style={{ color: item.status === 'SOLD' ? '#10b981' : 'rgba(255,255,255,0.5)', fontSize: 7, fontWeight: 'bold', marginBottom: 1 }} numberOfLines={1}>
-                                {item.status === 'SOLD' ? 'SOLD' : 'YOU'} {item.quantity > 1 ? '(ea)' : ''}
+                            <Text style={{ color: isSold ? theme.success : 'rgba(255,255,255,0.7)', fontSize: 8, fontWeight: 'bold', marginBottom: 1 }} numberOfLines={1}>
+                                {priceLabel}
                             </Text>
-                            <Text style={{ color: item.status === 'SOLD' ? '#10b981' : '#fff', fontSize: 10, fontWeight: 'bold' }} numberOfLines={1} adjustsFontSizeToFit>
-                                {formatUsd(item.status === 'SOLD' && item.sold_price !== null ? item.sold_price : item.listing_price)}
+                            <Text style={{ color: isSold ? theme.success : '#fff', fontSize: 10, fontWeight: 'bold' }} numberOfLines={1} adjustsFontSizeToFit>
+                                {formatUsd(displayPrice)}
                             </Text>
                         </View>
                     </View>
@@ -1551,7 +1436,10 @@ export default function InventoryScreen() {
             );
         }
 
-        return filtered.sort((a, b) => {
+        // Items arrive newest-first from the DB, so RECENT keeps order and OLDEST reverses it.
+        if (sortBy === 'OLDEST') return [...filtered].reverse();
+
+        return [...filtered].sort((a, b) => {
             if (sortBy === 'PRICE_HIGH_LOW' || sortBy === 'PRICE_LOW_HIGH') {
                 const getPrice = (item: InventoryItem) => item.listing_price || 0;
                 return sortBy === 'PRICE_HIGH_LOW' ? getPrice(b) - getPrice(a) : getPrice(a) - getPrice(b);
@@ -1559,13 +1447,7 @@ export default function InventoryScreen() {
             if (sortBy === 'NAME_AZ') {
                 return a.title.localeCompare(b.title);
             }
-            if (sortBy === 'OLDEST') {
-                // Since `fetchInventory` defaults to returning most recent first, we can just invert the index naturally if no explicit date exists in the type, but let's assume they are chronologically ordered in `items` or we fallback to string locale diff on IDs if necessary.
-                // Reversing index implies oldest items first:
-                // Note: items are already pre-sorted newest first from DB
-                return 1;
-            }
-            return 0; // RECENT (default based on fetchInventory sort)
+            return 0;
         });
     }, [items, filter, sortBy, searchQuery, activeFilters, selectedCollectionId, itemCollectionsMap]);
 
@@ -1580,9 +1462,7 @@ export default function InventoryScreen() {
                 listedValue += item.listing_price * item.quantity;
             }
 
-            const pricesPayload = item.catalog_products?.catalog_prices_current;
-            const marketPrice = Array.isArray(pricesPayload) ? pricesPayload[0]?.market_price : pricesPayload?.market_price;
-            const currency = Array.isArray(pricesPayload) ? pricesPayload[0]?.currency : pricesPayload?.currency;
+            const { marketPrice, currency } = getItemDisplay(item);
 
             if (typeof marketPrice === 'number') {
                 marketValue += (convertToUsd(marketPrice, currency) ?? 0) * item.quantity;
@@ -1606,7 +1486,7 @@ export default function InventoryScreen() {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
-            <View style={styles.header}>
+            <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text style={[styles.title, { color: theme.text }]}>
                         {isSelectMode ? `${selectedItemIds.length} Selected` : 'Inventory'}
@@ -1648,7 +1528,7 @@ export default function InventoryScreen() {
                         </Text>
                     </TouchableOpacity>
                     {!isSelectMode && (
-                        <TouchableOpacity style={{ padding: 4 }} onPress={handleAddItemPress}>
+                        <TouchableOpacity style={{ padding: 4 }} onPress={handleAddItemPress} hitSlop={HitSlop} accessibilityRole="button" accessibilityLabel="Add item">
                             <Ionicons name="add" size={28} color={theme.text} />
                         </TouchableOpacity>
                     )}
@@ -1660,10 +1540,12 @@ export default function InventoryScreen() {
                 <TouchableOpacity 
                     style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: theme.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }}
                     onPress={() => setCollectionModalVisible(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Choose collection"
                 >
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 }}>
                         <Ionicons name={selectedCollectionId ? "folder" : "layers"} size={20} color={theme.primary} style={{ marginRight: 10 }} />
-                        <Text style={{ fontSize: 16, fontWeight: '600', color: theme.text }}>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: theme.text, flexShrink: 1 }} numberOfLines={1}>
                             {selectedCollectionId && collections.find(c => c.id === selectedCollectionId)
                                 ? collections.find(c => c.id === selectedCollectionId)!.name 
                                 : 'All Inventory'}
@@ -1701,6 +1583,8 @@ export default function InventoryScreen() {
                         && { backgroundColor: theme.primary + '20' }
                     ]}
                     onPress={() => setSortModalVisible(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Sort and filter"
                 >
                     <Ionicons
                         name="filter"
@@ -1710,6 +1594,8 @@ export default function InventoryScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.actionBtn, { marginLeft: 0 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View mode: ${viewMode}`}
                     onPress={() => {
                         const next = viewMode === 'list' ? 'grid' : viewMode === 'grid' ? 'binder' : 'list';
                         setViewMode(next);
@@ -1742,7 +1628,7 @@ export default function InventoryScreen() {
                             </View>
                             <View style={{ flex: 1, alignItems: 'center' }}>
                                 <Text style={{ fontSize: 10, color: theme.mutedText, fontWeight: '500', letterSpacing: 0.4 }}>PROFIT</Text>
-                                <Text style={{ fontSize: 13, fontWeight: '600', marginTop: 1, color: summaryStats.profitValue < 0 ? '#ef4444' : (summaryStats.profitValue > 0 ? '#10b981' : theme.text) }}>
+                                <Text style={{ fontSize: 13, fontWeight: '600', marginTop: 1, color: summaryStats.profitValue < 0 ? theme.destructive : (summaryStats.profitValue > 0 ? theme.success : theme.text) }}>
                                     {summaryStats.profitValue < 0 ? '-' : ''}{formatUsd(Math.abs(summaryStats.profitValue))}
                                 </Text>
                             </View>
@@ -1791,7 +1677,12 @@ export default function InventoryScreen() {
                     data={sortedItems}
                     keyExtractor={(item) => item.id}
                     renderItem={viewMode === 'binder' ? renderBinderItem : viewMode === 'grid' ? renderGridItem : renderItem}
-                    contentContainerStyle={viewMode === 'binder' ? [styles.listContent, { paddingHorizontal: 4 }] : viewMode === 'grid' ? [styles.listContent, { paddingHorizontal: 8 }] : styles.listContent}
+                    contentContainerStyle={[
+                        styles.listContent,
+                        viewMode === 'binder' && { paddingHorizontal: 4 },
+                        viewMode === 'grid' && { paddingHorizontal: 8 },
+                        isSelectMode && { paddingBottom: 80 },
+                    ]}
                     numColumns={viewMode === 'binder' ? 3 : viewMode === 'grid' ? 2 : 1}
                     columnWrapperStyle={viewMode === 'binder' ? styles.binderRow : viewMode === 'grid' ? styles.gridRow : undefined}
                 />
@@ -1809,7 +1700,7 @@ export default function InventoryScreen() {
                             <Text style={{ color: theme.text, fontSize: 13, fontWeight: '600' }}>Status</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.bulkActionBtn, { backgroundColor: '#ef4444', opacity: selectedItemIds.length ? 1 : 0.5 }]}
+                            style={[styles.bulkActionBtn, { backgroundColor: theme.destructive, opacity: selectedItemIds.length ? 1 : 0.5 }]}
                             disabled={selectedItemIds.length === 0}
                             onPress={promptBulkDelete}
                         >
@@ -1819,598 +1710,140 @@ export default function InventoryScreen() {
                 </View>
             )}
 
-            <ModalShell
+            <SortFilterSheet
                 visible={sortModalVisible}
                 onClose={() => setSortModalVisible(false)}
-                title="Sort & Filter"
-                type="bottom-sheet"
-                headerRight={
-                    <TouchableOpacity onPress={() => {
-                        setSortBy('RECENT');
-                        AsyncStorage.setItem('inventory_sort_mode', 'RECENT');
-                        setActiveFilters({ isCard: false, isSealed: false, isEnglish: false, isJapanese: false });
-                    }}>
-                        <Text style={{ color: theme.mutedText, fontSize: 14, fontWeight: '500' }}>Reset</Text>
-                    </TouchableOpacity>
-                }
-            >
-                <ScrollView style={styles.sheetBody}>
-                            {/* Sort Section */}
-                            <Text style={[styles.sectionHeading, { color: theme.mutedText }]}>SORT BY</Text>
-                            <View style={styles.sortList}>
-                                {[
-                                    { id: 'RECENT', label: 'Recently Added' },
-                                    { id: 'OLDEST', label: 'Oldest Added' },
-                                    { id: 'PRICE_HIGH_LOW', label: 'Price: High to Low' },
-                                    { id: 'PRICE_LOW_HIGH', label: 'Price: Low to High' },
-                                    { id: 'NAME_AZ', label: 'Name: A to Z' },
-                                ].map((option) => (
-                                    <TouchableOpacity
-                                        key={option.id}
-                                        style={styles.sortOptionRow}
-                                        onPress={() => {
-                                            setSortBy(option.id as any);
-                                            AsyncStorage.setItem('inventory_sort_mode', option.id);
-                                        }}
-                                    >
-                                        <Text style={[
-                                            styles.sortOptionText,
-                                            { color: sortBy === option.id ? theme.primary : theme.text, fontWeight: sortBy === option.id ? '700' : '400' }
-                                        ]}>
-                                            {option.label}
-                                        </Text>
-                                        {sortBy === option.id && (
-                                            <Ionicons name="checkmark" size={20} color={theme.primary} />
-                                        )}
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
+                sortBy={sortBy}
+                onChangeSort={(id) => {
+                    setSortBy(id);
+                    AsyncStorage.setItem('inventory_sort_mode', id);
+                }}
+                filters={activeFilters}
+                onToggleFilter={(key) => setActiveFilters(prev => ({ ...prev, [key]: !prev[key] }))}
+                onReset={() => {
+                    setSortBy('RECENT');
+                    AsyncStorage.setItem('inventory_sort_mode', 'RECENT');
+                    setActiveFilters({ isCard: false, isSealed: false, isEnglish: false, isJapanese: false });
+                }}
+            />
 
-                            {/* Filter Section */}
-                            <Text style={[styles.sectionHeading, { color: theme.mutedText, marginTop: 24 }]}>FILTERS</Text>
-
-                            <Text style={[styles.filterSubHeading, { color: theme.text }]}>Type</Text>
-                            <View style={styles.filterChipGroup}>
-                                <TouchableOpacity
-                                    style={[styles.filterChipToggle, { backgroundColor: activeFilters.isCard ? theme.primary : theme.border }]}
-                                    onPress={() => setActiveFilters(prev => ({ ...prev, isCard: !prev.isCard }))}
-                                >
-                                    <Text style={{ color: activeFilters.isCard ? '#fff' : theme.text, fontWeight: '600', fontSize: 13 }}>Cards Only</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.filterChipToggle, { backgroundColor: activeFilters.isSealed ? theme.sealed : theme.border }]}
-                                    onPress={() => setActiveFilters(prev => ({ ...prev, isSealed: !prev.isSealed }))}
-                                >
-                                    <Text style={{ color: activeFilters.isSealed ? '#fff' : theme.text, fontWeight: '600', fontSize: 13 }}>Sealed Only</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <Text style={[styles.filterSubHeading, { color: theme.text, marginTop: 16 }]}>Language</Text>
-                            <View style={styles.filterChipGroup}>
-                                <TouchableOpacity
-                                    style={[styles.filterChipToggle, { backgroundColor: activeFilters.isEnglish ? theme.primary : theme.border }]}
-                                    onPress={() => setActiveFilters(prev => ({ ...prev, isEnglish: !prev.isEnglish }))}
-                                >
-                                    <Text style={{ color: activeFilters.isEnglish ? '#fff' : theme.text, fontWeight: '600', fontSize: 13 }}>English (EN)</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.filterChipToggle, { backgroundColor: activeFilters.isJapanese ? theme.primary : theme.border }]}
-                                    onPress={() => setActiveFilters(prev => ({ ...prev, isJapanese: !prev.isJapanese }))}
-                                >
-                                    <Text style={{ color: activeFilters.isJapanese ? '#fff' : theme.text, fontWeight: '600', fontSize: 13 }}>Japanese (JA)</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={{ height: 40 }} />
-                </ScrollView>
-            </ModalShell>
-
-            <ModalShell
+            <CollectionPickerSheet
                 visible={collectionModalVisible}
                 onClose={() => setCollectionModalVisible(false)}
-                title="Select Context"
-                type="bottom-sheet"
-            >
-                <ScrollView style={styles.sheetBody}>
-                    <TouchableOpacity
-                        style={[styles.sortOptionRow, { paddingRight: 80 }]}
-                        onPress={() => {
-                            setSelectedCollectionId(null);
-                            AsyncStorage.removeItem('inventory_selected_collection_id');
-                            setCollectionModalVisible(false);
-                        }}
-                    >
-                        <Text style={[
-                            styles.sortOptionText,
-                            { color: selectedCollectionId === null ? theme.primary : theme.text, fontWeight: selectedCollectionId === null ? '700' : '400', flex: 1 }
-                        ]}>
-                            All Inventory
-                        </Text>
-                        {selectedCollectionId === null && (
-                            <Ionicons name="checkmark" size={20} color={theme.primary} />
-                        )}
-                    </TouchableOpacity>
+                collections={collections}
+                selectedCollectionId={selectedCollectionId}
+                onSelect={(id) => {
+                    setSelectedCollectionId(id);
+                    if (id) AsyncStorage.setItem('inventory_selected_collection_id', id);
+                    else AsyncStorage.removeItem('inventory_selected_collection_id');
+                    setCollectionModalVisible(false);
+                }}
+                onEdit={(c) => {
+                    setEditingCollection(c);
+                    setCollectionName(c.name);
+                    setCollectionDescription(c.description || '');
+                    setCollectionVisibility(c.visibility || 'private');
+                    setCollectionModalVisible(false);
+                    setCollectionFormVisible(true);
+                }}
+                onDelete={(c) => {
+                    setCollectionModalVisible(false);
+                    promptDeleteCollection(c);
+                }}
+                onCreate={() => {
+                    setEditingCollection(null);
+                    setCollectionName('');
+                    setCollectionDescription('');
+                    setCollectionVisibility('private');
+                    setCollectionModalVisible(false);
+                    setCollectionFormVisible(true);
+                }}
+            />
 
-                    {collections.length > 0 && (
-                        <Text style={[styles.sectionHeading, { color: theme.mutedText, marginTop: 16 }]}>MY COLLECTIONS</Text>
-                    )}
-
-                    {collections.map(c => (
-                        <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <TouchableOpacity
-                                style={[styles.sortOptionRow, { flex: 1, borderBottomWidth: 0, paddingRight: 8 }]}
-                                onPress={() => {
-                                    setSelectedCollectionId(c.id);
-                                    AsyncStorage.setItem('inventory_selected_collection_id', c.id);
-                                    setCollectionModalVisible(false);
-                                }}
-                            >
-                                <Text style={[
-                                    styles.sortOptionText,
-                                    { color: selectedCollectionId === c.id ? theme.primary : theme.text, fontWeight: selectedCollectionId === c.id ? '700' : '400' }
-                                ]}>
-                                    {c.name}
-                                </Text>
-                                {selectedCollectionId === c.id && (
-                                    <Ionicons name="checkmark" size={20} color={theme.primary} />
-                                )}
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={{ padding: 8, marginRight: 2 }}
-                                onPress={() => {
-                                    setEditingCollection(c);
-                                    setCollectionName(c.name);
-                                    setCollectionDescription(c.description || '');
-                                    setCollectionVisibility(c.visibility || 'private');
-                                    setCollectionModalVisible(false);
-                                    setCollectionFormVisible(true);
-                                }}
-                            >
-                                <Ionicons name="pencil" size={16} color={theme.mutedText} />
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={{ padding: 8, paddingLeft: 0, marginRight: 8 }}
-                                onPress={() => {
-                                    setCollectionModalVisible(false);
-                                    promptDeleteCollection(c);
-                                }}
-                            >
-                                <Ionicons name="trash-outline" size={16} color="#ef4444" />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
-
-                    <View style={{ height: 16 }} />
-                    <TouchableOpacity
-                        style={[styles.sortOptionRow, { justifyContent: 'center', paddingVertical: 12, borderTopWidth: 1, borderTopColor: theme.border }]}
-                        onPress={() => {
-                            setEditingCollection(null);
-                            setCollectionName('');
-                            setCollectionDescription('');
-                            setCollectionVisibility('private');
-                            setCollectionModalVisible(false);
-                            setCollectionFormVisible(true);
-                        }}
-                    >
-                        <Ionicons name="add" size={20} color={theme.text} />
-                        <Text style={{ color: theme.text, marginLeft: 8, fontWeight: '600' }}>Create New Collection</Text>
-                    </TouchableOpacity>
-
-                    <View style={{ height: 40 }} />
-                </ScrollView>
-            </ModalShell>
-
-            <ModalShell
+            <CollectionFormSheet
                 visible={collectionFormVisible}
                 onClose={() => setCollectionFormVisible(false)}
-                title={editingCollection ? 'Edit Collection' : 'Create Collection'}
-                type="page-sheet"
-                hideClose
-                headerRight={
-                    <TouchableOpacity onPress={() => setCollectionFormVisible(false)}>
-                        <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
-                    </TouchableOpacity>
-                }
-            >
-                <ScrollView style={styles.modalBody}>
-                    <Text style={[styles.label, { color: theme.text }]}>Name *</Text>
-                    <TextInput
-                        style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }]}
-                        value={collectionName}
-                        onChangeText={setCollectionName}
-                        placeholder="e.g. Base Set Master"
-                        placeholderTextColor={theme.mutedText}
-                    />
+                isEditing={!!editingCollection}
+                name={collectionName}
+                onChangeName={setCollectionName}
+                description={collectionDescription}
+                onChangeDescription={setCollectionDescription}
+                visibility={collectionVisibility}
+                onChangeVisibility={setCollectionVisibility}
+                saving={savingCollection}
+                onSave={handleSaveCollection}
+                onDelete={() => editingCollection && promptDeleteCollection(editingCollection)}
+            />
 
-                    <Text style={[styles.label, { color: theme.text, marginTop: 16 }]}>Description</Text>
-                    <TextInput
-                        style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text, height: 80, textAlignVertical: 'top' }]}
-                        value={collectionDescription}
-                        onChangeText={setCollectionDescription}
-                        placeholder="Optional details about this collection..."
-                        placeholderTextColor={theme.mutedText}
-                        multiline
-                    />
-
-                    <Text style={[styles.label, { color: theme.text, marginTop: 16 }]}>Visibility</Text>
-                    <View style={{ gap: 12 }}>
-                        {[
-                            { value: 'private', label: 'Private', desc: 'Only you can see this collection.' },
-                            { value: 'unlisted', label: 'Unlisted', desc: 'Anyone with the link can view it, but it won\'t appear on your storefront.' },
-                            { value: 'public', label: 'Public', desc: 'Appears on your storefront for everyone to browse.' }
-                        ].map(opt => (
-                            <TouchableOpacity
-                                key={opt.value}
-                                onPress={() => setCollectionVisibility(opt.value as any)}
-                                style={{ flexDirection: 'row', alignItems: 'flex-start', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: collectionVisibility === opt.value ? theme.primary : theme.border, backgroundColor: collectionVisibility === opt.value ? theme.primary + '10' : theme.surface }}
-                            >
-                                <Ionicons name={collectionVisibility === opt.value ? "radio-button-on" : "radio-button-off"} size={20} color={collectionVisibility === opt.value ? theme.primary : theme.mutedText} />
-                                <View style={{ marginLeft: 10, flex: 1 }}>
-                                    <Text style={{ color: theme.text, fontWeight: '600', fontSize: 15 }}>{opt.label}</Text>
-                                    <Text style={{ color: theme.mutedText, fontSize: 12, marginTop: 4 }}>{opt.desc}</Text>
-                                </View>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-
-                    <TouchableOpacity
-                        style={[styles.saveButton, { backgroundColor: theme.primary, marginTop: 32 }]}
-                        onPress={handleSaveCollection}
-                        disabled={savingCollection}
-                    >
-                        {savingCollection ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Collection</Text>}
-                    </TouchableOpacity>
-
-                    {editingCollection && (
-                        <TouchableOpacity
-                            style={{ padding: 16, alignItems: 'center', marginTop: 16 }}
-                            onPress={() => promptDeleteCollection(editingCollection)}
-                        >
-                            <Text style={{ color: '#ef4444', fontWeight: 'bold' }}>Delete Collection</Text>
-                        </TouchableOpacity>
-                    )}
-                    
-                    <View style={{ height: 60 }} />
-                </ScrollView>
-            </ModalShell>
-
-            <ModalShell
+            <AddToCollectionSheet
                 visible={addToCollectionModalVisible}
                 onClose={() => setAddToCollectionModalVisible(false)}
-                title="Add to Collection"
-                type="bottom-sheet"
-            >
-                <ScrollView style={styles.sheetBody}>
-                    <Text style={[styles.sectionHeading, { color: theme.mutedText, marginBottom: 8 }]}>SELECT COLLECTIONS</Text>
-                    
-                    {collections.length === 0 ? (
-                        <Text style={{ color: theme.mutedText, padding: 16, textAlign: 'center' }}>You don't have any collections yet.</Text>
-                    ) : (
-                        collections.map(c => {
-                            const isSelected = selectedCollectionIdsForAdd.includes(c.id);
-                            return (
-                                <TouchableOpacity
-                                    key={c.id}
-                                    style={styles.sortOptionRow}
-                                    onPress={() => {
-                                        setSelectedCollectionIdsForAdd(prev => 
-                                            prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id]
-                                        );
-                                    }}
-                                >
-                                    <Text style={[styles.sortOptionText, { color: isSelected ? theme.primary : theme.text, fontWeight: isSelected ? '700' : '400' }]}>
-                                        {c.name}
-                                    </Text>
-                                    {isSelected && (
-                                        <Ionicons name="checkmark" size={20} color={theme.primary} />
-                                    )}
-                                </TouchableOpacity>
-                            );
-                        })
-                    )}
-                    
-                    <TouchableOpacity
-                        style={[styles.saveButton, { backgroundColor: theme.primary, marginTop: 24, paddingVertical: 14 }]}
-                        onPress={handleSaveItemToCollections}
-                        disabled={addingToCollections || collections.length === 0}
-                    >
-                        {addingToCollections ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save</Text>}
-                    </TouchableOpacity>
+                collections={collections}
+                selectedIds={selectedCollectionIdsForAdd}
+                onToggle={(id) => setSelectedCollectionIdsForAdd(prev =>
+                    prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+                )}
+                saving={addingToCollections}
+                onSave={handleSaveItemToCollections}
+            />
 
-                    <View style={{ height: 40 }} />
-                </ScrollView>
-            </ModalShell>
-
-            <ModalShell
+            <ItemFormSheet
                 visible={modalVisible}
                 onClose={() => {
                     setModalVisible(false);
                     router.setParams({ selectedCatalogProduct: undefined });
                 }}
-                title={editingItem ? 'Edit Item' : 'Add Item'}
-                type="page-sheet"
-                hideClose
-                headerRight={
-                    <TouchableOpacity onPress={() => {
-                        setModalVisible(false);
-                        router.setParams({ selectedCatalogProduct: undefined });
-                    }}>
-                        <Text style={{ color: theme.primary, fontSize: 16 }}>Cancel</Text>
-                    </TouchableOpacity>
-                }
-            >
-                <ScrollView style={styles.modalBody}>
-                        {!editingItem && selectedCollectionId && (() => {
-                            const c = collections.find(x => x.id === selectedCollectionId);
-                            if (c) {
-                                return (
-                                    <View style={{ marginBottom: 16, backgroundColor: theme.primary + '15', padding: 12, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}>
-                                        <Ionicons name="folder" size={16} color={theme.primary} style={{ marginRight: 8 }} />
-                                        <Text style={{ color: theme.primary, fontWeight: '600', fontSize: 13, flex: 1 }}>
-                                            Adding directly to <Text style={{ fontWeight: '800' }}>{c.name}</Text>
-                                        </Text>
-                                    </View>
-                                );
-                            }
-                            return null;
-                        })()}
-                        {imageUrl && (
-                            <View style={{ alignItems: 'center', marginBottom: 12 }}>
-                                <Image source={{ uri: imageUrl }} style={{ width: 150, height: 210, borderRadius: 8 }} resizeMode="cover" />
-                            </View>
-                        )}
-                        {setName && (
-                            <Text style={[{ color: theme.mutedText, textAlign: 'center', marginBottom: 20 }]}>
-                                {setName} • {formatSetNumber(externalId, collectorNumber, setName, setPrintedTotal, setTotal)}
-                            </Text>
-                        )}
-                        <Text style={[styles.label, { color: theme.text }]}>Title</Text>
-                        <TextInput
-                            style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }]}
-                            value={title}
-                            onChangeText={setTitle}
-                            placeholder="Charizard Base Set"
-                            placeholderTextColor={theme.mutedText}
-                            editable={!catalogProductId} // Lock field since we pulled from catalog
-                        />
+                editingStatus={editingItem?.status ?? null}
+                targetCollectionName={selectedCollectionId ? (collections.find(c => c.id === selectedCollectionId)?.name ?? null) : null}
+                imageUrl={imageUrl}
+                setLine={setName ? `${setName} • ${formatSetNumber(externalId, collectorNumber, setName, setPrintedTotal, setTotal)}` : null}
+                titleLocked={!!catalogProductId}
+                market={{ price: marketPrice, currency, source }}
+                title={title}
+                onChangeTitle={setTitle}
+                condition={condition}
+                onChangeCondition={setCondition}
+                isGraded={isGraded}
+                onChangeGraded={(val) => {
+                    setIsGraded(val);
+                    if (val) {
+                        setCondition(null);
+                    } else {
+                        setGradingCompany(null);
+                        setGrade(null);
+                    }
+                }}
+                gradingCompany={gradingCompany}
+                onChangeGradingCompany={setGradingCompany}
+                grade={grade}
+                onChangeGrade={setGrade}
+                quantity={quantity}
+                onChangeQuantity={setQuantity}
+                listingPrice={listingPrice}
+                onChangeListingPrice={setListingPrice}
+                costBasis={costBasis}
+                onChangeCostBasis={setCostBasis}
+                status={status}
+                onChangeStatus={setStatus}
+                soldPrice={soldPrice}
+                onChangeSoldPrice={setSoldPrice}
+                saving={saving}
+                onSave={handleSaveItem}
+                onDelete={() => editingItem && confirmDelete(editingItem)}
+            />
 
-                        {/* Item Details */}
-                        <Text style={[styles.label, { color: theme.text, marginTop: 16 }]}>Item Details</Text>
-
-                        {/* Condition chips — only when not graded */}
-                        {!isGraded && (
-                            <View style={{ marginBottom: 12 }}>
-                                <Text style={[styles.label, { color: theme.mutedText, fontSize: 12 }]}>Condition</Text>
-                                <View style={styles.statusContainer}>
-                                    {(['NM', 'LP', 'MP', 'HP', 'DMG'] as const).map((c) => (
-                                        <TouchableOpacity
-                                            key={c}
-                                            style={[
-                                                styles.statusBadge,
-                                                { backgroundColor: condition === c ? theme.primary : theme.surface, borderColor: theme.border }
-                                            ]}
-                                            onPress={() => setCondition(condition === c ? null : c)}
-                                        >
-                                            <Text style={{ color: condition === c ? '#fff' : theme.text, fontSize: 12 }}>{c}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Graded toggle */}
-                        <View style={[styles.row, { alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }]}>
-                            <Text style={[styles.label, { color: theme.text, marginBottom: 0 }]}>Graded</Text>
-                            <Switch
-                                value={isGraded}
-                                onValueChange={(val) => {
-                                    setIsGraded(val);
-                                    if (val) {
-                                        setCondition(null);
-                                    } else {
-                                        setGradingCompany(null);
-                                        setGrade(null);
-                                    }
-                                }}
-                                trackColor={{ false: '#767577', true: '#93c5fd' }}
-                                thumbColor={isGraded ? '#3b82f6' : '#f4f3f4'}
-                            />
-                        </View>
-
-                        {/* Grading fields — only when graded */}
-                        {isGraded && (
-                            <View style={{ marginBottom: 12 }}>
-                                <Text style={[styles.label, { color: theme.mutedText, fontSize: 12 }]}>Grading Company</Text>
-                                <View style={styles.statusContainer}>
-                                    {(['PSA', 'BGS', 'CGC', 'SGC', 'Other'] as const).map((co) => (
-                                        <TouchableOpacity
-                                            key={co}
-                                            style={[
-                                                styles.statusBadge,
-                                                { backgroundColor: gradingCompany === co ? theme.primary : theme.surface, borderColor: theme.border }
-                                            ]}
-                                            onPress={() => setGradingCompany(co)}
-                                        >
-                                            <Text style={{ color: gradingCompany === co ? '#fff' : theme.text, fontSize: 12 }}>{co}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                                <Text style={[styles.label, { color: theme.mutedText, fontSize: 12, marginTop: 10 }]}>Grade</Text>
-                                <View style={styles.statusContainer}>
-                                    {([1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const).map((g) => (
-                                        <TouchableOpacity
-                                            key={g}
-                                            style={[
-                                                styles.statusBadge,
-                                                { backgroundColor: grade === g ? theme.primary : theme.surface, borderColor: theme.border }
-                                            ]}
-                                            onPress={() => setGrade(g)}
-                                        >
-                                            <Text style={{ color: grade === g ? '#fff' : theme.text, fontSize: 12 }}>{g}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Pricing */}
-                        {marketPrice !== null && (
-                            <View style={styles.marketPriceBanner}>
-                                <Ionicons name="trending-up" size={16} color={theme.primary} />
-                                <Text style={styles.marketPriceLabel}>
-                                    Current {source ?? 'MKT'} Market Price: <Text style={{ fontWeight: 'bold' }}>{formatUsd(convertToUsd(marketPrice, currency))}</Text>
-                                </Text>
-                            </View>
-                        )}
-
-                        <View style={styles.row}>
-                            <View style={styles.halfCol}>
-                                <Text style={[styles.label, { color: theme.text }]}>Quantity <Text style={{ fontWeight: 'normal', color: theme.mutedText }}>(This Row)</Text></Text>
-                                <TextInput
-                                    style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }]}
-                                    value={quantity}
-                                    onChangeText={setQuantity}
-                                    keyboardType="numeric"
-                                />
-                            </View>
-                            <View style={styles.halfCol}>
-                                <Text style={[styles.label, { color: theme.text }]}>Listing Price ($)</Text>
-                                <TextInput
-                                    style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }]}
-                                    value={listingPrice}
-                                    onChangeText={setListingPrice}
-                                    keyboardType="numeric"
-                                />
-                            </View>
-                        </View>
-                        <View style={[styles.row, { marginTop: 0 }]}>
-                            <View style={styles.halfCol}></View>
-                            <View style={styles.halfCol}>
-                                <Text style={[styles.label, { color: theme.text }]}>Bought For ($) <Text style={{ fontWeight: 'normal', color: theme.mutedText }}>(Optional)</Text></Text>
-                                <TextInput
-                                    style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.text }]}
-                                    value={costBasis}
-                                    onChangeText={setCostBasis}
-                                    keyboardType="numeric"
-                                    placeholder="0.00"
-                                    placeholderTextColor={theme.mutedText}
-                                />
-                            </View>
-                        </View>
-
-                        <Text style={[styles.label, { color: theme.text }]}>Status</Text>
-                        <View style={styles.statusContainer}>
-                            {['FOR_SALE', 'PENDING', 'SOLD', 'PERSONAL'].filter(s => {
-                                // Lock transition paths to prevent bypassing Quick Sell logic and breaking Stack Identity rules
-                                if (s === 'SOLD' && editingItem?.status !== 'SOLD') return false; 
-                                if (s !== 'SOLD' && editingItem?.status === 'SOLD') return false;
-                                return true;
-                            }).map((s) => (
-                                <TouchableOpacity
-                                    key={s}
-                                    style={[
-                                        styles.statusBadge,
-                                        { backgroundColor: status === s ? theme.primary : theme.surface, borderColor: theme.border }
-                                    ]}
-                                    onPress={() => setStatus(s as any)}
-                                >
-                                    <Text style={{ color: status === s ? '#fff' : theme.text, fontSize: 12 }}>{s}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {status === 'SOLD' && (
-                            <View style={[styles.soldContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                <Text style={[styles.label, { color: theme.text }]}>Sale Details</Text>
-                                <View style={styles.row}>
-                                    <View style={styles.halfCol}>
-                                        <Text style={[styles.label, { color: theme.mutedText, fontSize: 12 }]}>Sold Price ($)</Text>
-                                        <TextInput
-                                            style={[styles.input, { borderColor: theme.border, backgroundColor: theme.background, color: theme.text }]}
-                                            value={soldPrice}
-                                            onChangeText={setSoldPrice}
-                                            keyboardType="numeric"
-                                        />
-                                    </View>
-                                    <View style={styles.halfCol}></View>
-                                </View>
-                            </View>
-                        )}
-
-                        <TouchableOpacity
-                            style={[styles.saveButton, { backgroundColor: theme.primary, marginTop: 30, marginBottom: editingItem ? 16 : 40 }]}
-                            onPress={handleSaveItem}
-                            disabled={saving}
-                        >
-                            <Text style={styles.saveButtonText}>
-                                {saving ? 'Saving...' : editingItem ? 'Save Changes' : 'Add to Inventory'}
-                            </Text>
-                        </TouchableOpacity>
-
-                        {editingItem && (
-                            <TouchableOpacity
-                                style={[styles.saveButton, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#ef4444', marginBottom: 40 }]}
-                                onPress={() => confirmDelete(editingItem)}
-                                disabled={saving}
-                            >
-                                <Text style={[styles.saveButtonText, { color: '#ef4444' }]}>
-                                    Delete item
-                                </Text>
-                            </TouchableOpacity>
-                        )}
-                    </ScrollView>
-            </ModalShell>
-
-            {/* Quick Sold Modal */}
-            <ModalShell
+            <QuickSellSheet
                 visible={soldModalVisible}
                 onClose={() => setSoldModalVisible(false)}
-                title="Mark as Sold"
-                type="bottom-sheet"
-                useKeyboardAvoiding
-            >
-                <View style={styles.sheetBody}>
-                            {sellingItem && sellingItem.quantity > 1 && (
-                                <>
-                                    <Text style={[styles.label, { color: theme.text, marginBottom: 8 }]}>Sell Quantity (max {sellingItem.quantity})</Text>
-                                    <TextInput
-                                        style={[styles.input, { borderColor: theme.border, backgroundColor: theme.background, color: theme.text, marginBottom: 16 }]}
-                                        value={quickSellQuantity}
-                                        onChangeText={setQuickSellQuantity}
-                                        keyboardType="numeric"
-                                    />
-                                </>
-                            )}
-                            <Text style={[styles.label, { color: theme.text, marginBottom: 8 }]}>Sold For ($)</Text>
-                            <TextInput
-                                style={[styles.input, { borderColor: theme.border, backgroundColor: theme.background, color: theme.text }]}
-                                value={quickSoldPrice}
-                                onChangeText={setQuickSoldPrice}
-                                keyboardType="numeric"
-                                placeholder="0.00"
-                                placeholderTextColor={theme.mutedText}
-                                autoFocus
-                            />
-
-                            <Text style={[styles.label, { color: theme.text, marginTop: 12, marginBottom: 8 }]}>Bought For ($) <Text style={{ fontWeight: 'normal', color: theme.mutedText }}>(Optional)</Text></Text>
-                            <TextInput
-                                style={[styles.input, { borderColor: theme.border, backgroundColor: theme.background, color: theme.text }]}
-                                value={quickCostBasis}
-                                onChangeText={setQuickCostBasis}
-                                keyboardType="numeric"
-                                placeholder="0.00"
-                                placeholderTextColor={theme.mutedText}
-                            />
-
-                            <TouchableOpacity
-                                style={[styles.saveButton, { backgroundColor: theme.primary, marginTop: 24 }]}
-                                onPress={handleQuickSellSave}
-                            >
-                                <Text style={styles.saveButtonText}>Save Sale</Text>
-                            </TouchableOpacity>
-                            <View style={{ height: 20 }} />
-                        </View>
-            </ModalShell>
+                maxQuantity={sellingItem?.quantity ?? 1}
+                quantity={quickSellQuantity}
+                onChangeQuantity={setQuickSellQuantity}
+                soldPrice={quickSoldPrice}
+                onChangeSoldPrice={setQuickSoldPrice}
+                costBasis={quickCostBasis}
+                onChangeCostBasis={setQuickCostBasis}
+                onSave={handleQuickSellSave}
+            />
         </View >
     );
 }
@@ -2424,7 +1857,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 20,
-        paddingTop: Platform.OS === 'ios' ? 60 : 40,
+        paddingBottom: 12,
     },
     binderItemCard: {
         width: '32%',
@@ -2458,11 +1891,6 @@ const styles = StyleSheet.create({
         fontSize: 28,
         fontWeight: 'bold',
     },
-    addButton: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-    },
     gridItemCard: {
         flex: 1,
         borderRadius: 6,
@@ -2490,32 +1918,14 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 4,
     },
-    addButtonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-    },
     mt20: {
         marginTop: 20,
-    },
-    emptyState: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    emptyText: {
-        fontSize: 16,
     },
     filterContainer: {
         paddingVertical: 12,
     },
     filterScroll: {
         paddingHorizontal: 16,
-    },
-    filterTab: {
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 24,
-        marginRight: 8,
     },
     searchRowContainer: {
         flexDirection: 'row',
@@ -2524,18 +1934,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 12,
     },
-    searchInputWrapper: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        height: 40,
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: 14,
-    },
     actionBtn: {
         width: 40,
         height: 40,
@@ -2543,103 +1941,24 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    sortContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#ebebeb',
-    },
-    sortChip: {
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 12,
-        borderWidth: 1,
-        marginRight: 8,
-    },
-    modalOverlay: {
-        flex: 1,
-    },
-    bottomSheet: {
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        maxHeight: '80%',
-        paddingBottom: Platform.OS === 'ios' ? 20 : 0,
-    },
-    sheetHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 24,
-        paddingBottom: 16,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#ccc',
-    },
-    sheetTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    sheetBody: {
-        paddingHorizontal: 24,
-        paddingTop: 16,
-    },
-    sectionHeading: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        letterSpacing: 1,
-        marginBottom: 12,
-    },
-    filterSubHeading: {
-        fontSize: 15,
-        fontWeight: '600',
-        marginBottom: 10,
-    },
-    sortList: {
-        gap: 8,
-    },
-    sortOptionRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#ebebeb',
-    },
-    sortOptionText: {
-        fontSize: 16,
-    },
-    filterChipGroup: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-    },
-    filterChipToggle: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 20,
-    },
     bulkActionBar: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        padding: 16,
-        paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
         borderTopWidth: StyleSheet.hairlineWidth,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 10,
+        boxShadow: '0px -2px 8px rgba(0, 0, 0, 0.1)',
     },
     bulkActionBtn: {
+        minHeight: 40,
+        justifyContent: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 16,
+        borderRadius: 20,
     },
     listContent: {
         padding: 20,
@@ -2673,122 +1992,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         overflow: 'hidden',
         padding: 4,
-    },
-    itemHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 8,
-    },
-    itemTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        flex: 1,
-        marginRight: 10,
-    },
-    itemPrice: {
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    itemMarketPrice: {
-        fontSize: 12,
-        marginTop: 2,
-    },
-    itemFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    itemMeta: {
-        fontSize: 14,
-    },
-    badge: {
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
-    },
-    badgeText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-    modalContainer: {
-        flex: 1,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 20,
-        paddingTop: Platform.OS === 'ios' ? 20 : 20,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#ccc',
-    },
-    modalTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    modalBody: {
-        padding: 20,
-    },
-    label: {
-        fontSize: 14,
-        fontWeight: '500',
-        marginBottom: 8,
-    },
-    input: {
-        borderWidth: 1,
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 16,
-        marginBottom: 16,
-    },
-    marketPriceBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        backgroundColor: '#e0f7fa',
-        borderRadius: 8,
-        marginBottom: 16,
-        gap: 6
-    },
-    marketPriceLabel: {
-        fontSize: 14,
-        color: '#006064',
-    },
-    row: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    halfCol: {
-        width: '48%',
-    },
-    statusContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-        marginBottom: 20,
-    },
-    statusBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 16,
-        borderWidth: 1,
-    },
-    soldContainer: {
-        marginTop: 16,
-        padding: 12,
-        borderRadius: 8,
-        borderWidth: 1,
-    },
-    saveButton: {
-        padding: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginBottom: 40,
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
     },
     gridRow: {
         justifyContent: 'space-between',

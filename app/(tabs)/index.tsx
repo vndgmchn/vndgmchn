@@ -1,21 +1,22 @@
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import ModalShell from '@/components/ui/ModalShell';
+import { STOREFRONT_THEMES, getThemePreset } from '@/constants/storefrontThemes';
+import { HitSlop } from '@/constants/theme';
+import { setColorScheme, useColorScheme } from '@/hooks/use-color-scheme';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { setAuthBypass } from '@/lib/authBypass';
 import { formatUsd } from '@/lib/format';
-import { supabase } from '@/lib/supabase';
 import { uploadProfileAvatar, uploadProfileBanner } from '@/lib/storage';
+import { supabase } from '@/lib/supabase';
 import { normalizeHandle } from '@/lib/utils';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Clipboard from 'expo-clipboard';
-import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Appearance, ScrollView, Share, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { STOREFRONT_THEMES, getThemePreset } from '@/constants/storefrontThemes';
 
 type Profile = {
   handle: string;
@@ -68,7 +69,10 @@ export default function HomeScreen() {
 
   const fetchDashboardData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     setUserId(user.id);
 
@@ -101,7 +105,8 @@ export default function HomeScreen() {
     const { data: inventoryData } = await supabase
       .from('inventory_items')
       .select('quantity, listing_price, status, sold_price, cost_basis')
-      .eq('owner_id', user.id);
+      .eq('owner_id', user.id)
+      .is('deleted_at', null);
 
     if (inventoryData) {
       let totalValue = 0;
@@ -147,7 +152,7 @@ export default function HomeScreen() {
 
   const toggleTheme = async (value: boolean) => {
     const newTheme = value ? 'dark' : 'light';
-    Appearance.setColorScheme(newTheme);
+    setColorScheme(newTheme);
     await AsyncStorage.setItem('appTheme', newTheme);
   };
 
@@ -157,10 +162,15 @@ export default function HomeScreen() {
     // Optimistically update
     setProfile({ ...profile, is_public: value });
 
-    await supabase
+    const { error } = await supabase
       .from('profiles')
       .update({ is_public: value })
       .eq('id', userId);
+
+    if (error) {
+      setProfile((prev) => (prev ? { ...prev, is_public: !value } : prev));
+      Alert.alert('Error', 'Could not update storefront visibility.');
+    }
   };
 
   const shareLinks = async () => {
@@ -172,12 +182,6 @@ export default function HomeScreen() {
     } catch (error) {
       console.error(error);
     }
-  };
-
-  const copyLink = async () => {
-    if (!profile) return;
-    await Clipboard.setStringAsync(`https://vndgmchn.com/${normalizeHandle(profile.handle)}`);
-    Alert.alert('Copied!', 'Storefront link copied to clipboard.');
   };
 
   const openEditModal = () => {
@@ -226,13 +230,16 @@ export default function HomeScreen() {
 
     let newAvatarUrl = profile.avatar_url ?? null;
     let newBannerUrl = profile.banner_url ?? null;
+    const failedUploads: string[] = [];
     if (editAvatarUri) {
       const url = await uploadProfileAvatar(userId, editAvatarUri);
       if (url) newAvatarUrl = url;
+      else failedUploads.push('avatar');
     }
     if (editBannerUri) {
       const url = await uploadProfileBanner(userId, editBannerUri);
       if (url) newBannerUrl = url;
+      else failedUploads.push('banner');
     }
 
     const { error } = await supabase
@@ -260,6 +267,9 @@ export default function HomeScreen() {
         theme_preset: editThemePreset,
       });
       setEditModalVisible(false);
+      if (failedUploads.length > 0) {
+        Alert.alert('Profile saved', `Your ${failedUploads.join(' and ')} image could not be uploaded. Please try again.`);
+      }
     }
   };
 
@@ -313,12 +323,18 @@ export default function HomeScreen() {
             <TouchableOpacity 
               style={[styles.utilityBtn, { backgroundColor: 'rgba(0,0,0,0.4)' }]} 
               onPress={openEditModal}
+              hitSlop={HitSlop}
+              accessibilityRole="button"
+              accessibilityLabel="Edit storefront"
             >
               <Ionicons name="create-outline" size={22} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.utilityBtn, { backgroundColor: 'rgba(0,0,0,0.4)' }]} 
               onPress={() => router.push('/search')}
+              hitSlop={HitSlop}
+              accessibilityRole="button"
+              accessibilityLabel="Search catalog"
             >
               <Ionicons name="search" size={22} color="#fff" />
             </TouchableOpacity>
@@ -378,11 +394,11 @@ export default function HomeScreen() {
                     <Text style={[styles.displayName, { color: textPrimary }]} numberOfLines={1}>
                       {profile.display_name || `@${profile.handle}`}
                     </Text>
-                    <Text style={[styles.handle, { color: textSecondary }]}>
+                    <Text style={[styles.handle, { color: textSecondary }]} numberOfLines={1}>
                       @{profile.handle}
                     </Text>
                     {profile.bio && (
-                      <Text style={[styles.bio, { color: textPrimary }]}>
+                      <Text style={[styles.bio, { color: textPrimary }]} numberOfLines={3}>
                         {profile.bio}
                       </Text>
                     )}
@@ -582,7 +598,7 @@ export default function HomeScreen() {
               />
               <Text style={[
                 styles.charCounter, 
-                { color: editBio.length > 100 ? '#f59e0b' : theme.mutedText }
+                { color: editBio.length > 100 ? theme.warning : theme.mutedText }
               ]}>
                 {editBio.length} / 120
               </Text>
@@ -650,7 +666,7 @@ export default function HomeScreen() {
           </View>
           <View style={[styles.metricCardHalf, { backgroundColor: theme.surface }]}>
             <Text style={[styles.metricLabel, { color: theme.mutedText }]}>Realized Profit</Text>
-            <Text style={[styles.metricValue, { color: '#10B981' }]}>{formatUsd(metrics.realizedProfit)}</Text>
+            <Text style={[styles.metricValue, { color: theme.success }]}>{formatUsd(metrics.realizedProfit)}</Text>
           </View>
         </View>
       </View>
@@ -684,7 +700,14 @@ export default function HomeScreen() {
           />
         </View>
         <View style={{ paddingVertical: 12, paddingHorizontal: 16 }}>
-          <TouchableOpacity onPress={() => supabase.auth.signOut()}>
+          <TouchableOpacity
+            hitSlop={HitSlop}
+            accessibilityRole="button"
+            onPress={() => Alert.alert('Sign out?', undefined, [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Sign Out', style: 'destructive', onPress: () => { setAuthBypass(false); supabase.auth.signOut(); } },
+            ])}
+          >
             <Text style={{ color: theme.destructive, fontSize: 16, fontWeight: '500' }}>Sign Out</Text>
           </TouchableOpacity>
         </View>
@@ -734,10 +757,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -768,11 +787,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.1)',
   },
   profileRow: {
     flexDirection: 'row',
@@ -849,7 +864,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actionButton: {
-    height: 38,
+    height: 44,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -917,25 +932,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
   },
-  footer: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  editButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginTop: 10,
-    marginBottom: 6,
-  },
-  editButtonText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
   editModalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -951,35 +947,6 @@ const styles = StyleSheet.create({
   },
   editSection: {
     marginTop: 20,
-  },
-  imagePicker: {
-    borderRadius: 12,
-    overflow: 'hidden',
-    height: 100,
-  },
-  imagePickerBanner: {
-    width: '100%',
-    height: 100,
-  },
-  imagePickerEmpty: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  imagePickerHint: {
-    fontSize: 13,
-  },
-  avatarPickerWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 12,
-  },
-  avatarPickerImage: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
   },
   editInput: {
     padding: 14,
@@ -1006,10 +973,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'right',
     marginTop: 6,
-  },
-  editHeader: {
-    marginBottom: 20,
-    marginTop: 4,
   },
   editHelperText: {
     fontSize: 13,
@@ -1043,11 +1006,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 12,
     padding: 12,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.15)',
   },
   previewProfileRow: {
     flexDirection: 'row',

@@ -1,14 +1,13 @@
+import { useAuthBypass } from '@/lib/authBypass';
 import { supabase } from '@/lib/supabase';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Session } from '@supabase/supabase-js';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { setColorScheme, useColorScheme } from '@/hooks/use-color-scheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Appearance } from 'react-native';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -19,15 +18,16 @@ export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [profileExists, setProfileExists] = useState<boolean | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const authBypassed = useAuthBypass();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     AsyncStorage.getItem('appTheme').then(theme => {
       if (theme === 'dark' || theme === 'light') {
-        Appearance.setColorScheme(theme);
+        setColorScheme(theme);
       } else {
-        Appearance.setColorScheme('light');
+        setColorScheme('light');
         AsyncStorage.setItem('appTheme', 'light');
       }
     });
@@ -73,9 +73,15 @@ export default function RootLayout() {
   useEffect(() => {
     if (!initialized || profileExists === null && session) return;
 
-    const inTabsGroup = segments[0] === '(tabs)';
     const inCreateProfile = segments[0] === 'create-profile';
     const inAuth = segments[0] === 'auth';
+
+    if (!session && authBypassed) {
+      if (inAuth || inCreateProfile || !segments[0]) {
+        router.replace('/(tabs)');
+      }
+      return;
+    }
 
     if (!session) {
       if (!inAuth) {
@@ -88,7 +94,7 @@ export default function RootLayout() {
         router.replace('/(tabs)');
       }
     }
-  }, [session, profileExists, initialized, segments, router]);
+  }, [session, profileExists, initialized, segments, router, authBypassed]);
 
   if (!initialized || (session && profileExists === null)) {
     return null; // A splash screen would be ideal here

@@ -1,18 +1,20 @@
+import { HitSlop } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 import { ReactNode } from 'react';
 import {
-    Modal,
     KeyboardAvoidingView,
+    Modal,
     Platform,
+    StyleProp,
     StyleSheet,
     Text,
     TouchableOpacity,
     TouchableWithoutFeedback,
     View,
-    ViewStyle,
-    StyleProp
+    ViewStyle
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = {
     visible: boolean;
@@ -43,6 +45,7 @@ export default function ModalShell({
     style,
 }: Props) {
     const theme = useThemeColors();
+    const insets = useSafeAreaInsets();
 
     const isPageSheet = type === 'page-sheet';
     const isCenter = type === 'center';
@@ -52,12 +55,18 @@ export default function ModalShell({
         
         return (
             <View style={styles.header}>
-                {title ? <Text style={[styles.title, { color: theme.text }]}>{title}</Text> : <View style={{ flex: 1 }} />}
+                {title ? <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} accessibilityRole="header">{title}</Text> : <View style={{ flex: 1 }} />}
                 
                 <View style={styles.headerActions}>
                     {headerRight}
                     {!hideClose && (
-                        <TouchableOpacity onPress={onClose} style={[styles.closeBtn, title || headerRight ? { marginLeft: 16 } : null]}>
+                        <TouchableOpacity
+                            onPress={onClose}
+                            style={[styles.closeBtn, title || headerRight ? { marginLeft: 16 } : null]}
+                            hitSlop={HitSlop}
+                            accessibilityRole="button"
+                            accessibilityLabel="Close"
+                        >
                             <Ionicons name="close" size={24} color={theme.text} />
                         </TouchableOpacity>
                     )}
@@ -72,7 +81,7 @@ export default function ModalShell({
     } else if (isCenter) {
         containerStyle = [styles.centerContainer, { backgroundColor: theme.surface }, style];
     } else {
-        containerStyle = [styles.bottomSheetContainer, { backgroundColor: theme.surface }, style];
+        containerStyle = [styles.bottomSheetContainer, { backgroundColor: theme.surface, paddingBottom: Math.max(insets.bottom, 12) }, style];
     }
 
     const innerContent = (
@@ -89,7 +98,7 @@ export default function ModalShell({
     ) : (
         <View style={[styles.overlay, isCenter ? { justifyContent: 'center' } : { justifyContent: 'flex-end' }]}>
             <TouchableWithoutFeedback onPress={onClose}>
-                 <View style={StyleSheet.absoluteFillObject} />
+                 <View style={StyleSheet.absoluteFill} />
             </TouchableWithoutFeedback>
             {innerContent}
         </View>
@@ -137,10 +146,9 @@ const styles = StyleSheet.create({
         maxHeight: '80%',
     },
     bottomSheetContainer: {
-        borderTopLeftRadius: 6,
-        borderTopRightRadius: 6,
+        borderTopLeftRadius: 12,
+        borderTopRightRadius: 12,
         maxHeight: '90%',
-        paddingBottom: Platform.OS === 'ios' ? 20 : 0,
     },
     header: {
         flexDirection: 'row',

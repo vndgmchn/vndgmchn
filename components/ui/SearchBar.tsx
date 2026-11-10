@@ -4,9 +4,10 @@
  * Does NOT include screen-specific trailing action buttons — those stay in the caller.
  */
 
+import { HitSlop } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { StyleSheet, TextInput, TouchableOpacity, View, ViewStyle } from 'react-native';
 
 type Props = {
     value: string;
@@ -54,7 +55,13 @@ export default function SearchBar({
                 onSubmitEditing={onSubmitEditing}
             />
             {value.length > 0 && onClear && (
-                <TouchableOpacity onPress={onClear} style={styles.clearBtn}>
+                <TouchableOpacity
+                    onPress={onClear}
+                    style={styles.clearBtn}
+                    hitSlop={HitSlop}
+                    accessibilityRole="button"
+                    accessibilityLabel="Clear search"
+                >
                     <Ionicons name="close-circle" size={16} color={theme.mutedText} />
                 </TouchableOpacity>
             )}

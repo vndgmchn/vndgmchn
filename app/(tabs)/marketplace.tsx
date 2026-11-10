@@ -1,13 +1,15 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import ScreenHeader from '@/components/ui/ScreenHeader';
 import SearchBar from '@/components/ui/SearchBar';
+import { getThemePreset } from '@/constants/storefrontThemes';
+import { HitSlop } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { normalizeHandle } from '@/lib/utils';
-import { getThemePreset } from '@/constants/storefrontThemes';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { ActivityIndicator, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type StorefrontResult = {
     user_id: string;
@@ -51,24 +53,19 @@ export default function MarketplaceScreen() {
     // ── Storefront Search (debounced) ─────────────────────────────────────────
     const [searchResults, setSearchResults] = useState<StorefrontResult[] | null>(null);
     const [searching, setSearching] = useState(false);
+    const [searchError, setSearchError] = useState(false);
 
     const runStorefrontSearch = async (query: string) => {
         setSearching(true);
         const { data, error } = await supabase.rpc('search_storefronts', { query });
         setSearching(false);
-        if (!error && data) {
-            setSearchResults(data as StorefrontResult[]);
-        } else {
-            setSearchResults([]);
-        }
+        setSearchError(!!error);
+        setSearchResults(!error && data ? (data as StorefrontResult[]) : []);
     };
 
     useEffect(() => {
         const normalized = normalizeHandle(searchHandle);
-        if (!normalized) {
-            setSearchResults(null);
-            return;
-        }
+        if (!normalized) return;
         const timer = setTimeout(() => runStorefrontSearch(normalized), 300);
         return () => clearTimeout(timer);
     }, [searchHandle]);
@@ -99,35 +96,37 @@ export default function MarketplaceScreen() {
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={[styles.title, { color: theme.text }]}>Marketplace</Text>
-            </View>
+            <ScreenHeader title="Marketplace" />
 
             {/* Search Input */}
             <View style={styles.searchSection}>
                 <View style={styles.searchRow}>
                     <Text style={[styles.atSymbol, { color: theme.mutedText }]}>@</Text>
                     <SearchBar
-                        style={{ flex: 1, marginRight: 10 }}
+                        style={{ flex: 1 }}
                         value={searchHandle}
-                        onChangeText={setSearchHandle}
+                        onChangeText={(text) => {
+                            setSearchHandle(text);
+                            if (!normalizeHandle(text)) setSearchResults(null);
+                        }}
                         placeholder="mystic_vendor"
                         autoCapitalize="none"
                         returnKeyType="search"
                         onSubmitEditing={handleSearch}
-                        onClear={() => setSearchHandle('')}
+                        onClear={() => {
+                            setSearchHandle('');
+                            setSearchResults(null);
+                        }}
                     />
-                    <TouchableOpacity
-                        style={[styles.button, { backgroundColor: theme.primary }]}
-                        onPress={handleSearch}
-                        disabled={!searchHandle.trim()}
-                    >
-                        <Text style={styles.buttonText}>Search</Text>
-                    </TouchableOpacity>
                 </View>
             </View>
 
+            <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{ paddingBottom: 24 }}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+            >
             {/* IDLE state: no query typed */}
             {!searching && searchResults === null && (
                 <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
@@ -140,7 +139,7 @@ export default function MarketplaceScreen() {
                         <View style={{ marginTop: 28 }}>
                             <View style={styles.recentLabelRow}>
                                 <Text style={[styles.recentLabel, { color: theme.mutedText }]}>Recent Searches</Text>
-                                <TouchableOpacity onPress={clearRecentSearches} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                <TouchableOpacity onPress={clearRecentSearches} hitSlop={HitSlop} accessibilityRole="button">
                                     <Text style={[styles.clearAllText, { color: theme.mutedText }]}>Clear All</Text>
                                 </TouchableOpacity>
                             </View>
@@ -162,12 +161,12 @@ export default function MarketplaceScreen() {
 
             {/* RESULTS state: debounced storefront search */}
             {(searching || searchResults !== null) && (
-                <View style={{ flex: 1 }}>
+                <View>
                     {searching && <ActivityIndicator style={{ marginTop: 24 }} />}
                     {!searching && searchResults !== null && searchResults.length === 0 && (
                         <View style={{ paddingHorizontal: 20, paddingTop: 32, alignItems: 'center' }}>
-                            <Text style={[styles.discoverSubtext, { color: theme.mutedText, textAlign: 'center' }]}>
-                                No storefronts found.
+                            <Text style={[styles.discoverSubtext, { color: searchError ? theme.destructive : theme.mutedText, textAlign: 'center' }]}>
+                                {searchError ? 'Search failed. Check your connection and try again.' : 'No storefronts found.'}
                             </Text>
                         </View>
                     )}
@@ -233,6 +232,7 @@ export default function MarketplaceScreen() {
                     )}
                 </View>
             )}
+            </ScrollView>
         </View>
     );
 }
@@ -240,15 +240,6 @@ export default function MarketplaceScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-    },
-    header: {
-        padding: 20,
-        paddingTop: Platform.OS === 'ios' ? 60 : 40,
-        paddingBottom: 10,
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
     },
     searchSection: {
         paddingHorizontal: 20,
@@ -262,18 +253,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         marginRight: 8,
-    },
-    button: {
-        padding: 14,
-        borderRadius: 6,
-        alignItems: 'center',
-        justifyContent: 'center',
-        minWidth: 80,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: 'bold',
     },
     discoverHeading: {
         fontSize: 22,

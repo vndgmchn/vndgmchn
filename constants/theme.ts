@@ -18,6 +18,8 @@ export const Colors = {
     primary: '#0a7ea4',
     secondary: '#6366f1',
     success: '#10b981',
+    successSurface: '#d1e7dd',
+    onSuccessSurface: '#0f5132',
     warning: '#f59e0b',
     destructive: '#ef4444',
     sealed: '#8b5cf6',
@@ -35,6 +37,8 @@ export const Colors = {
     primary: '#0a7ea4',
     secondary: '#818cf8',
     success: '#34d399',
+    successSurface: '#064e3b',
+    onSuccessSurface: '#a7f3d0',
     warning: '#fbbf24',
     destructive: '#f87171',
     sealed: '#a78bfa',
@@ -44,6 +48,14 @@ export const Colors = {
     tabIconSelected: '#FFFFFF',
   },
 };
+
+export const Spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 } as const;
+
+export const Radius = { sm: 6, md: 8, lg: 12, xl: 16, pill: 999 } as const;
+
+export const FontSize = { title: 28, heading: 20, subheading: 17, body: 15, caption: 13, small: 11 } as const;
+
+export const HitSlop = { top: 10, bottom: 10, left: 10, right: 10 } as const;
 
 export const Fonts = Platform.select({
   ios: {

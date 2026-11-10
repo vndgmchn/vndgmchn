@@ -1,13 +1,15 @@
-import { formatRelativeTime, formatUsd, convertToUsd } from '@/lib/format';
-import { formatCollectorNumber, formatSetNumber, displayRarity } from '@/lib/format';
-import SearchBar from '@/components/ui/SearchBar';
 import EmptyState from '@/components/ui/EmptyState';
+import SearchBar from '@/components/ui/SearchBar';
+import { HitSlop } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { convertToUsd, displayRarity, formatRelativeTime, formatSetNumber, formatUsd } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export type CatalogProduct = {
     id: string;
@@ -36,34 +38,11 @@ export default function UniversalSearchModal() {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<CatalogProduct[]>([]);
     const [loading, setLoading] = useState(false);
-    const [searchingEdge, setSearchingEdge] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [openingId, setOpeningId] = useState<string | null>(null);
 
     const [isUpdatingPrices, setIsUpdatingPrices] = useState(false);
     const didAutoRefreshRef = useRef('');
-
-    useEffect(() => {
-        const logToken = async () => {
-            const { data, error } = await supabase.auth.getSession();
-            console.log("ACCESS TOKEN:", data.session?.access_token);
-            console.log("SESSION ERROR:", error);
-        };
-        logToken();
-    }, []);
-
-    // Initial cache-load when query changes
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (query.trim().length >= 2) {
-                searchLocalCache(query.trim());
-            } else {
-                setResults([]);
-                setErrorMsg(null);
-            }
-        }, 500); // 500ms debounce
-        return () => clearTimeout(timer);
-    }, [query]);
 
     const searchLocalCache = async (searchTerm: string, isRetry = false) => {
         if (!isRetry) {
@@ -76,12 +55,19 @@ export default function UniversalSearchModal() {
         });
 
         if (error) {
-            console.error(`[Search][Edge] Error: ${error.message} (Code: ${error.code})`, error.details, error.hint);
+            const res: Response | undefined = error instanceof FunctionsHttpError ? error.context : undefined;
+            if (res?.status === 401) {
+                console.warn('[Search][Edge] Not signed in; search requires an authenticated user.');
+                if (!isRetry) setErrorMsg('Sign in to search the catalog.');
+            } else {
+                const detail = res ? await res.text().catch(() => '') : '';
+                console.error(`[Search][Edge] ${error.message}${res ? ` (HTTP ${res.status})` : ''}`, detail);
+                if (!isRetry) setErrorMsg('Search failed. Please try again.');
+            }
         }
 
         if (!error && data?.data) {
             const rowData = data.data;
-            console.log(`[Search][Edge] Returned ${rowData.length} rows for query "${searchTerm}"`);
 
             const mapped = rowData.map((row: any) => {
                 return {
@@ -96,7 +82,8 @@ export default function UniversalSearchModal() {
 
             // If cache results are poor, hit Edge Function fallback
             if (mapped.length === 0 && !isRetry) {
-                // Now handled by edge function response natively.
+                setResults([]);
+                setLoading(false);
             } else {
                 setResults(current => {
                     return mapped.map((newRow: any) => {
@@ -137,6 +124,20 @@ export default function UniversalSearchModal() {
         }
     };
 
+    const runSearch = useEffectEvent((term: string) => searchLocalCache(term));
+
+    // Initial cache-load when query changes
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (query.trim().length >= 2) {
+                runSearch(query.trim());
+            } else {
+                setResults([]);
+                setErrorMsg(null);
+            }
+        }, 500); // 500ms debounce
+        return () => clearTimeout(timer);
+    }, [query]);
 
     const handleSelectProduct = (product: CatalogProduct) => {
         // Map native normalized "name" field into inventory's "title" fallback expectation
@@ -153,15 +154,6 @@ export default function UniversalSearchModal() {
             params: { selectedCatalogProduct: JSON.stringify(unifiedPayload) }
         });
     };
-
-    const formatDate = (dateString?: string | null) => {
-        if (!dateString) return 'Missing Cache';
-        return new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    };
-
-
-
-
 
     const buildTcgplayerSearchUrl = (item: CatalogProduct) => {
         const queryParts: string[] = [item.name];
@@ -204,7 +196,6 @@ export default function UniversalSearchModal() {
     const renderItem = ({ item }: { item: CatalogProduct }) => {
         const displayName = item.language_code === 'JA' ? (item.name_en ?? item.name) : item.name;
         const displaySet = item.language_code === 'JA' ? (item.set_name_en ?? item.set_name) : item.set_name;
-        const nameLabel = item.language_code === 'JA' ? `${displayName} (JP)` : displayName;
 
         const setNumber = formatSetNumber(item.external_id, item.collector_number, displaySet, item.set_printed_total, item.set_total);
         const rarity = item.language_code === 'JA' ? displayRarity(item.rarity) : (item.rarity || null);
@@ -225,7 +216,6 @@ export default function UniversalSearchModal() {
                             source={{ uri: item.image_url }}
                             style={styles.image}
                             resizeMode="cover"
-                            defaultSource={{ uri: 'https://via.placeholder.com/50x70?text=No+Image' }}
                         />
                     ) : (
                         <Ionicons name="image-outline" size={24} color={theme.mutedText} />
@@ -246,7 +236,7 @@ export default function UniversalSearchModal() {
                         {subtitle}
                     </Text>
                 </View>
-                <View style={[styles.priceContainer, { minWidth: 90, alignItems: 'flex-end' }]}>
+                <View style={[styles.priceContainer, { minWidth: 72, marginLeft: 8, alignItems: 'flex-end' }]}>
                     {item.last_updated && typeof item.market_price === 'number' ? (
                         <>
                             <Text style={[styles.priceTag, { color: theme.success, fontSize: 13, fontWeight: 'bold' }]} adjustsFontSizeToFit numberOfLines={1}>
@@ -263,6 +253,9 @@ export default function UniversalSearchModal() {
                 </View>
                 <TouchableOpacity
                     style={{ padding: 8, justifyContent: 'center' }}
+                    hitSlop={HitSlop}
+                    accessibilityRole="link"
+                    accessibilityLabel="Open on TCGplayer"
                     onPress={(e) => {
                         e.stopPropagation();
                         handleOpenTcgPlayer(item);
@@ -282,11 +275,17 @@ export default function UniversalSearchModal() {
     return (
         <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={styles.closeBtn}
+                    hitSlop={HitSlop}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close search"
+                >
                     <Ionicons name="close" size={28} color={theme.text} />
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: theme.text, marginRight: 24 }]}>Add Catalog Item</Text>
-                <View style={{ width: 28 }} />
+                <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>Add Catalog Item</Text>
+                <View style={styles.headerSpacer} />
             </View>
 
             <SearchBar
@@ -302,22 +301,17 @@ export default function UniversalSearchModal() {
             {/* Loading State or Results */}
             {errorMsg ? (
                 <View style={styles.centerBox}>
-                    <Ionicons name="warning-outline" size={48} color="#ef4444" />
-                    <Text style={[styles.emptyText, { color: "#ef4444", textAlign: 'center', paddingHorizontal: 20 }]}>
+                    <Ionicons name="warning-outline" size={48} color={theme.destructive} />
+                    <Text style={[styles.emptyText, { color: theme.destructive, textAlign: 'center', paddingHorizontal: 20 }]}>
                         {errorMsg}
                     </Text>
                 </View>
-            ) : loading && !searchingEdge ? (
+            ) : loading ? (
                 <View style={styles.centerBox}>
                     <ActivityIndicator size="large" color={theme.primary} />
                     <Text style={[styles.loadingText, { color: theme.mutedText }]}>Searching catalog cache...</Text>
                 </View>
-            ) : searchingEdge ? (
-                <View style={styles.centerBox}>
-                    <ActivityIndicator size="large" color={theme.primary} />
-                    <Text style={[styles.loadingText, { color: theme.mutedText }]}>Connecting to Scrydex Database...</Text>
-                </View>
-            ) : results.length === 0 && query.length >= 3 ? (
+            ) : results.length === 0 && query.trim().length >= 2 ? (
                 <EmptyState
                     icon="search-outline"
                     title="No matching items found."
@@ -348,17 +342,9 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: Platform.OS === 'ios' ? 60 : 40,
-        paddingBottom: 20,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        flex: 1,
-    },
-    closeButton: {
-        padding: 5,
+        paddingHorizontal: 8,
+        paddingTop: 8,
+        paddingBottom: 12,
     },
     listContent: {
         paddingBottom: 20,
@@ -366,9 +352,9 @@ const styles = StyleSheet.create({
     },
     resultCard: {
         flexDirection: 'row',
-        padding: 16,
-        marginBottom: 16,
-        borderRadius: 6,
+        padding: 12,
+        marginBottom: 12,
+        borderRadius: 8,
     },
     imagePlaceholder: {
         width: 60,
@@ -384,7 +370,7 @@ const styles = StyleSheet.create({
     },
     resultInfo: {
         flex: 1,
-        marginLeft: 15,
+        marginLeft: 12,
         justifyContent: 'center',
     },
     resultTitle: {
@@ -403,17 +389,8 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
-    priceLabel: {
-        fontSize: 12,
-        marginTop: 2
-    },
     dateLabel: {
         fontSize: 10,
-    },
-    emptyContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 50,
     },
     emptyText: {
         fontSize: 16,
@@ -423,14 +400,16 @@ const styles = StyleSheet.create({
     },
     closeBtn: {
         padding: 8,
+        width: 44,
+    },
+    headerSpacer: {
+        width: 44,
     },
     headerTitle: {
+        flex: 1,
+        textAlign: 'center',
         fontSize: 20,
         fontWeight: 'bold',
-    },
-    input: {
-        flex: 1,
-        fontSize: 16,
     },
     centerBox: {
         flex: 1,
@@ -441,6 +420,5 @@ const styles = StyleSheet.create({
     loadingText: {
         marginTop: 12,
         fontSize: 14,
-        color: '#666',
     }
 });

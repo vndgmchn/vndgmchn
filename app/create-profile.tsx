@@ -2,7 +2,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { normalizeHandle } from '@/lib/utils';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { type ComponentRef, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -17,9 +17,11 @@ import {
     TouchableWithoutFeedback,
     View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function CreateProfileScreen() {
     const theme = useThemeColors();
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const [handle, setHandle] = useState('');
     const [displayName, setDisplayName] = useState('');
@@ -27,8 +29,8 @@ export default function CreateProfileScreen() {
     const [loading, setLoading] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
 
-    const displayNameRef = useRef<TextInput>(null);
-    const bioRef = useRef<TextInput>(null);
+    const displayNameRef = useRef<ComponentRef<typeof TextInput>>(null);
+    const bioRef = useRef<ComponentRef<typeof TextInput>>(null);
 
     useEffect(() => {
         supabase.auth.getUser().then(({ data: { user } }) => {
@@ -91,7 +93,7 @@ export default function CreateProfileScreen() {
         >
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                 <ScrollView
-                    contentContainerStyle={styles.scrollContent}
+                    contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 40 }]}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
@@ -104,7 +106,7 @@ export default function CreateProfileScreen() {
                                 styles.input,
                                 { backgroundColor: theme.surface, color: theme.text },
                             ]}
-                            onChangeText={setHandle}
+                            onChangeText={(text) => setHandle(text.toLowerCase())}
                             value={handle}
                             placeholder="e.g. mystic_vendor"
                             placeholderTextColor={theme.mutedText}
@@ -155,7 +157,7 @@ export default function CreateProfileScreen() {
                         />
                         <Text style={[
                             styles.charCounter,
-                            { color: bio.length > 100 ? '#f59e0b' : theme.mutedText }
+                            { color: bio.length > 100 ? theme.warning : theme.mutedText }
                         ]}>
                             {bio.length} / 120
                         </Text>
@@ -163,7 +165,7 @@ export default function CreateProfileScreen() {
 
                     <View style={[styles.verticallySpaced, styles.mt20, styles.buttonContainer]}>
                         <TouchableOpacity
-                            style={[styles.button, { backgroundColor: theme.primary }]}
+                            style={[styles.button, { backgroundColor: theme.primary, opacity: loading || !handle ? 0.5 : 1 }]}
                             disabled={loading || !handle}
                             onPress={handleCreateProfile}
                         >
@@ -186,8 +188,6 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         justifyContent: 'center',
         padding: 20,
-        paddingTop: Platform.OS === 'ios' ? 60 : 40,
-        paddingBottom: 40,
     },
     title: {
         fontSize: 28,

@@ -1,15 +1,18 @@
+import { HitSlop } from '@/constants/theme';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { ActivityIndicator, Platform, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 
 export default function WebViewScreen() {
     const { url } = useLocalSearchParams<{ url: string }>();
     const router = useRouter();
+    const theme = useThemeColors();
     const [isLoading, setIsLoading] = useState(true);
 
-    // Validate the URL: check if it exists and starts with https://
     const isValidUrl = url && url.startsWith('https://');
 
     const handleBack = () => {
@@ -21,26 +24,31 @@ export default function WebViewScreen() {
     };
 
     const renderHeader = () => (
-        <View style={styles.header}>
-            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-                <Ionicons name="chevron-back" size={24} color="#007AFF" />
-                <Text style={styles.backText}>Back</Text>
+        <View style={[styles.header, { borderBottomColor: theme.border, backgroundColor: theme.background }]}>
+            <TouchableOpacity
+                onPress={handleBack}
+                style={styles.backButton}
+                hitSlop={HitSlop}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+            >
+                <Ionicons name="chevron-back" size={24} color={theme.primary} />
+                <Text style={[styles.backText, { color: theme.primary }]}>Back</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>TCGplayer</Text>
+            <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>TCGplayer</Text>
             <View style={styles.headerRight} />
         </View>
     );
 
-    // Error State
     if (!isValidUrl) {
         return (
-            <SafeAreaView style={styles.safeArea}>
+            <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
                 {renderHeader()}
-                <View style={styles.errorContainer}>
-                    <Ionicons name="alert-circle-outline" size={48} color="#FF3B30" style={styles.errorIcon} />
-                    <Text style={styles.errorTitle}>Invalid URL</Text>
-                    <Text style={styles.errorMessage}>The provided link is missing or invalid.</Text>
-                    <TouchableOpacity onPress={handleBack} style={styles.errorButton}>
+                <View style={[styles.errorContainer, { backgroundColor: theme.surface }]}>
+                    <Ionicons name="alert-circle-outline" size={48} color={theme.destructive} style={styles.errorIcon} />
+                    <Text style={[styles.errorTitle, { color: theme.text }]}>Invalid URL</Text>
+                    <Text style={[styles.errorMessage, { color: theme.mutedText }]}>The provided link is missing or invalid.</Text>
+                    <TouchableOpacity onPress={handleBack} style={[styles.errorButton, { backgroundColor: theme.primary }]} accessibilityRole="button">
                         <Text style={styles.errorButtonText}>Go Back</Text>
                     </TouchableOpacity>
                 </View>
@@ -48,14 +56,13 @@ export default function WebViewScreen() {
         );
     }
 
-    // WebView State
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]} edges={['top', 'left', 'right']}>
             {renderHeader()}
-            <View style={styles.container}>
+            <View style={[styles.container, { backgroundColor: theme.background }]}>
                 {isLoading && (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color="#007AFF" />
+                    <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+                        <ActivityIndicator size="large" color={theme.primary} />
                     </View>
                 )}
                 <WebView
@@ -73,9 +80,6 @@ export default function WebViewScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
-        // Apply padding top for Android due to lack of SafeAreaView support for status bar natively
-        paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
     },
     header: {
         flexDirection: 'row',
@@ -83,40 +87,35 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 8,
         paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E5EA',
-        backgroundColor: '#FFFFFF',
+        borderBottomWidth: StyleSheet.hairlineWidth,
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        minWidth: 80, // Ensures header layout balance
+        minWidth: 80,
     },
     backText: {
         fontSize: 17,
-        color: '#007AFF',
         marginLeft: 4,
     },
     title: {
+        flexShrink: 1,
         fontSize: 17,
         fontWeight: '600',
-        color: '#000000',
     },
     headerRight: {
-        minWidth: 80, // Balances the header based on back button width
+        minWidth: 80,
     },
     container: {
         flex: 1,
-        backgroundColor: '#F2F2F7',
     },
     webview: {
         flex: 1,
     },
     loadingContainer: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
         zIndex: 10,
     },
     errorContainer: {
@@ -124,7 +123,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         padding: 24,
-        backgroundColor: '#F2F2F7',
     },
     errorIcon: {
         marginBottom: 16,
@@ -132,17 +130,14 @@ const styles = StyleSheet.create({
     errorTitle: {
         fontSize: 20,
         fontWeight: '600',
-        color: '#000000',
         marginBottom: 8,
     },
     errorMessage: {
         fontSize: 16,
-        color: '#8E8E93',
         textAlign: 'center',
         marginBottom: 24,
     },
     errorButton: {
-        backgroundColor: '#007AFF',
         paddingHorizontal: 24,
         paddingVertical: 12,
         borderRadius: 8,

@@ -1,6 +1,7 @@
+import { setAuthBypass } from '@/lib/authBypass';
 import { supabase } from '@/lib/supabase';
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -36,9 +37,14 @@ export default function AuthScreen() {
         setLoading(false);
     }
 
+    const canSubmit = !loading && email.trim().length > 0 && password.length > 0;
+
     return (
-        <View style={[styles.container, { backgroundColor: theme.background }]}>
-            <Text style={[styles.title, { color: theme.text }]}>VNDG MCHN</Text>
+        <KeyboardAvoidingView
+            style={[styles.container, { backgroundColor: theme.background }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+            <Text style={[styles.title, { color: theme.text }]} accessibilityRole="header">VNDG MCHN</Text>
             <View style={[styles.verticallySpaced, styles.mt20]}>
                 <TextInput
                     style={[
@@ -50,6 +56,12 @@ export default function AuthScreen() {
                     placeholder="email@address.com"
                     placeholderTextColor={theme.mutedText}
                     autoCapitalize={'none'}
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                    autoComplete="email"
+                    returnKeyType="next"
+                    accessibilityLabel="Email"
                 />
             </View>
             <View style={styles.verticallySpaced}>
@@ -64,34 +76,51 @@ export default function AuthScreen() {
                     placeholder="Password"
                     placeholderTextColor={theme.mutedText}
                     autoCapitalize={'none'}
+                    textContentType="password"
+                    autoComplete="password"
+                    returnKeyType="go"
+                    onSubmitEditing={() => canSubmit && signInWithEmail()}
+                    accessibilityLabel="Password"
                 />
             </View>
             <View style={[styles.verticallySpaced, styles.mt20]}>
                 <TouchableOpacity
-                    style={[styles.button, { backgroundColor: theme.primary }]}
-                    disabled={loading}
+                    style={[styles.button, { backgroundColor: theme.primary, opacity: canSubmit ? 1 : 0.5 }]}
+                    disabled={!canSubmit}
                     onPress={() => signInWithEmail()}
+                    accessibilityRole="button"
                 >
                     <Text style={[styles.buttonText, { color: '#fff' }]}>Sign in</Text>
                 </TouchableOpacity>
             </View>
             <View style={styles.verticallySpaced}>
                 <TouchableOpacity
-                    style={[styles.buttonOutline, { borderColor: theme.primary }]}
-                    disabled={loading}
+                    style={[styles.buttonOutline, { borderColor: theme.primary, opacity: canSubmit ? 1 : 0.5 }]}
+                    disabled={!canSubmit}
                     onPress={() => signUpWithEmail()}
+                    accessibilityRole="button"
                 >
                     <Text style={[styles.buttonOutlineText, { color: theme.primary }]}>Sign up</Text>
                 </TouchableOpacity>
             </View>
+            {__DEV__ && (
+                <View style={styles.verticallySpaced}>
+                    <TouchableOpacity
+                        style={styles.skipButton}
+                        disabled={loading}
+                        onPress={() => setAuthBypass(true)}
+                    >
+                        <Text style={[styles.skipButtonText, { color: theme.mutedText }]}>Skip login (dev)</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
             {loading && <ActivityIndicator style={styles.mt20} />}
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        marginTop: 40,
         padding: 20,
         flex: 1,
         justifyContent: 'center',
@@ -135,5 +164,13 @@ const styles = StyleSheet.create({
     buttonOutlineText: {
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    skipButton: {
+        padding: 14,
+        alignItems: 'center',
+    },
+    skipButtonText: {
+        fontSize: 14,
+        textDecorationLine: 'underline',
     },
 });

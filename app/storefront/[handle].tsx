@@ -1,20 +1,19 @@
-import { convertJpyHeuristic, displayRarity, formatCollectorNumber, formatSetNumber, formatUsd } from '@/lib/format';
+import StorefrontItemBadge from '@/components/storefront/StorefrontItemBadge';
 import EmptyState from '@/components/ui/EmptyState';
-import FilterPill from '@/components/ui/FilterPill';
 import ModalShell from '@/components/ui/ModalShell';
 import SearchBar from '@/components/ui/SearchBar';
-import StorefrontItemBadge from '@/components/storefront/StorefrontItemBadge';
+import { getThemePreset } from '@/constants/storefrontThemes';
+import { HitSlop } from '@/constants/theme';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { convertJpyHeuristic, displayRarity, formatSetNumber, formatUsd } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 import { normalizeHandle } from '@/lib/utils';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState, useMemo, useEffect } from 'react';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { STOREFRONT_THEMES, getThemePreset } from '@/constants/storefrontThemes';
 import { Image } from 'expo-image';
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, Share } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const StorefrontHeader = ({ profile, theme, insets, onBack }: { profile: any; theme: any; insets: any; onBack: () => void }) => {
     if (!profile) return null;
@@ -49,11 +48,17 @@ const StorefrontHeader = ({ profile, theme, insets, onBack }: { profile: any; th
                     <TouchableOpacity 
                         style={styles.utilityBtn} 
                         onPress={onBack}
+                        hitSlop={HitSlop}
+                        accessibilityRole="button"
+                        accessibilityLabel="Back"
                     >
                         <Ionicons name="chevron-back" size={22} color="#fff" />
                     </TouchableOpacity>
                     <TouchableOpacity 
                         style={styles.utilityBtn} 
+                        hitSlop={HitSlop}
+                        accessibilityRole="button"
+                        accessibilityLabel="Share storefront"
                         onPress={() => {
                             Share.share({
                                 message: `Check out ${profile.display_name || profile.handle}'s storefront: https://vndgmchn.com/${profile.handle}`,
@@ -243,41 +248,44 @@ export default function StorefrontPage() {
         }
     };
 
+    const loadItemsFor = useEffectEvent((collectionId: string) => loadCollectionItems(collectionId, false));
+    const loadStorefrontForHandle = useEffectEvent(() => loadStorefront(false));
+
     useEffect(() => {
         if (activeCollectionId) {
-            loadCollectionItems(activeCollectionId, false);
-        } else {
-            setCollectionItems(null);
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on selection change
+            loadItemsFor(activeCollectionId);
         }
     }, [activeCollectionId]);
 
     useEffect(() => {
-        loadStorefront(false);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on handle change
+        loadStorefrontForHandle();
     }, [handle]);
 
-    const onRefresh = useCallback(() => {
+    const onRefresh = () => {
         if (activeCollectionId) {
             loadCollectionItems(activeCollectionId, true);
         } else {
             loadStorefront(true);
         }
-    }, [handle, activeCollectionId]);
+    };
 
-    // Reset search and filters when exiting a collection natively
-    useEffect(() => {
-        if (!activeCollectionId) {
-            setStorefrontSearchQuery('');
-            setFilterType('All');
-            setFilterLang('All');
-            setSortBy('Recent');
-            setSelectedItem(null);
-        }
-    }, [activeCollectionId]);
-
-    const formatDate = useCallback((dateString?: string | null) => {
+    const formatDate = (dateString?: string | null) => {
         if (!dateString) return 'Missing Cache';
         return new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    }, []);
+    };
+
+    // Reset search and filters when exiting a collection
+    const exitCollection = () => {
+        setActiveCollectionId(null);
+        setCollectionItems(null);
+        setStorefrontSearchQuery('');
+        setFilterType('All');
+        setFilterLang('All');
+        setSortBy('Recent');
+        setSelectedItem(null);
+    };
 
     const renderCollection = useCallback(({ item }: { item: any }) => {
         return (
@@ -321,7 +329,7 @@ export default function StorefrontPage() {
                 )}
             </TouchableOpacity>
         );
-    }, [theme, profile]);
+    }, [theme]);
 
     const renderItemCard = useCallback(({ item }: { item: any }) => {
         if (!item.item_id) return null;
@@ -401,7 +409,7 @@ export default function StorefrontPage() {
                 </View>
             </TouchableOpacity>
         );
-    }, [numColumns, theme, formatDate]);
+    }, [numColumns, theme]);
 
     const validItems = useMemo(
         () => collectionItems ? collectionItems.filter((row: any) => row.item_id) : [],
@@ -453,14 +461,20 @@ export default function StorefrontPage() {
         return displayItems.reduce((acc, current) => acc + ((parseFloat(current.listing_price) || 0) * (current.quantity || 1)), 0);
     }, [displayItems]);
 
-    const activePreset = getThemePreset(profile?.theme_preset || 'default');
  
     return (
         <View style={[styles.container, { backgroundColor: theme.background }]}>
             {loading && !profile && <ActivityIndicator style={{ marginTop: 40 + insets.top }} />}
  
-            {!loading && error && (
-                <Text style={[styles.errorText, { color: 'red' }]}>{error}</Text>
+            {!loading && error && !profile && (
+                <EmptyState
+                    icon="storefront-outline"
+                    title="Storefront unavailable"
+                    message={error}
+                    actionLabel="Go Back"
+                    onAction={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/marketplace')}
+                    style={{ flex: 1, paddingTop: insets.top }}
+                />
             )}
  
             {profile ? (
@@ -483,7 +497,7 @@ export default function StorefrontPage() {
                                     profile={profile} 
                                     theme={theme} 
                                     insets={insets} 
-                                    onBack={() => activeCollectionId ? setActiveCollectionId(null) : router.back()} 
+                                    onBack={() => activeCollectionId ? exitCollection() : router.back()} 
                                 />
                                 {activeCollectionId && (() => {
                                     const activeCol = publicCollections?.find(c => (c.id || c.collection_id) === activeCollectionId);
@@ -515,7 +529,7 @@ export default function StorefrontPage() {
                                                         const percent = (totalListValue / totalMarketValue) * 100;
                                                         let color = theme.mutedText;
                                                         if (percent < 99.5) color = theme.success;
-                                                        else if (percent > 100.5) color = '#ef4444';
+                                                        else if (percent > 100.5) color = theme.destructive;
                                                         
                                                         return (
                                                             <Text style={[styles.deltaText, { color }]}>
@@ -754,38 +768,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    pageHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 12,
-        paddingBottom: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
-    backButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        minWidth: 100,
-    },
-    backText: {
-        fontSize: 16,
-        fontWeight: '500',
-        marginLeft: 2,
-    },
-    pageTitle: {
-        fontSize: 15,
-        fontWeight: '600',
-        flex: 1,
-        textAlign: 'center',
-    },
-    headerRight: {
-        minWidth: 100,
-    },
-    errorText: {
-        paddingHorizontal: 20,
-        paddingTop: 20,
-        fontSize: 14,
-    },
     resultSection: {
         flex: 1,
     },
@@ -836,11 +818,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 16,
         zIndex: 20,
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.1)',
     },
     profileRow: {
         flexDirection: 'row',
@@ -878,27 +856,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         lineHeight: 16,
         fontWeight: '400',
-    },
-    actionRow: {
-        flexDirection: 'row',
-        gap: 6,
-    },
-    actionButton: {
-        height: 44,
-        borderRadius: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    primaryBtn: {
-        flex: 1,
-    },
-    secondaryBtn: {
-        width: 44,
-    },
-    actionButtonText: {
-        fontWeight: 'bold',
-        fontSize: 13,
     },
     summaryRow: {
         flexDirection: 'row',
@@ -964,7 +921,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     imageBlur: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         width: '100%',
         height: '100%',
         opacity: 0.2,
@@ -1055,7 +1012,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 12,
         borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: '#ebebeb',
+        borderBottomColor: 'rgba(127,127,127,0.25)',
     },
     modalOptionText: {
         fontSize: 16,
